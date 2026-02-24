@@ -3,13 +3,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /**
  * FOKUSMAT — App.jsx (paste hele filen)
  *
- * Opdatering (Arcade: Heste-løb):
- * ✅ CPU-heste er hurtigere (så de vinder hvis du ikke svarer / svarer forkert)
- * ✅ Hestefarver (hvid, brun, sort, grå + plettet)
- * ✅ Ingen tidsbegrænsning — race slutter først ved målstregen
- * ✅ Procent-opgaver i Arcade bruger “runde tal” (fx 30% af 90, ikke 30% af 58)
- * ✅ Kun label “DIN HEST” på din hest (ingen CPU-navne)
- * ✅ Banen er galop-bane (græs + brun dirt + flot målstreg)
+ * NYT (Arcade difficulty):
+ * ✅ 3 sværhedsgrader til Arcade-opgaver: "let", "nem", "svær"
+ * ✅ KÆMPE forskel mellem dem (let = super “confidence boost”)
+ * ✅ Division i Arcade er ALTID “pæne” divisionsstykker (heltal), aldrig 342/19
+ * ✅ Procent i Arcade bruger runde tal (som før)
+ *
+ * NOTE: Træningsopgaver er som før (progression/klassetrin). Arcade er “hurtig & nem”.
  */
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -60,7 +60,7 @@ function addDaysToDayKey(key, deltaDays) {
   return `${yy}-${mm}-${dd}`;
 }
 
-const STORAGE_KEY = "FOKUSMAT_APP_V12_ARCADE_HORSE_UNLIMITED";
+const STORAGE_KEY = "FOKUSMAT_APP_V13_ARCADE_DIFFICULTY";
 
 // --- Theme ---
 const THEMES = [
@@ -140,20 +140,7 @@ function getDifficulty(level, grade) {
   };
 }
 
-// Arcade difficulty: nemmere end træning + færre “tunge” typer
-function getArcadeDifficulty(level, grade) {
-  const L = clamp(level - 2, 1, 10);
-  const base = getDifficulty(L, grade);
-  return {
-    ...base,
-    allowMultiStep: false,
-    allowHardEquations: false,
-    avoidTooEasy: false,
-    multiStepChance: 0.12,
-  };
-}
-
-// ---------------- Problem generators ----------------
+// ---------------- Training problem generators ----------------
 function genAddSub(diff) {
   const max = diff.smallMax;
   const big = diff.bigMax;
@@ -314,52 +301,6 @@ function genPercent(diff) {
   return makeDiscount();
 }
 
-/** Arcade-percent: runde tal (så 30% af 90 osv) */
-function genPercentArcade(diff) {
-  const pctPool = [5, 10, 15, 20, 25, 30, 40, 50];
-
-  const roundNums = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300];
-  const roundPrices = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300];
-
-  const makeDiscount = () => {
-    const price = choice(roundPrices);
-    const pct = choice(pctPool);
-    const factor = 1 - pct / 100;
-    const ans = roundTo(price * factor, 2);
-    return {
-      topicKey: "percent",
-      title: "Rabat",
-      prompt: `En vare koster ${price} kr. Der er ${pct}% rabat. Hvad koster den efter rabat?`,
-      answer: ans,
-      unit: "kr",
-      tolerance: 0.01,
-      format: "decimal",
-      hint: "Pris × (1 − pct/100).",
-      steps: [`Faktor: 1 − ${pct}/100 = ${roundTo(factor, 4)}`, `${price} × ${roundTo(factor, 4)} = ${ans} kr`],
-    };
-  };
-
-  const makePercentOf = () => {
-    const num = choice(roundNums);
-    const pct = choice(pctPool);
-    const ans = roundTo((pct / 100) * num, 2);
-    return {
-      topicKey: "percent",
-      title: "Procent af tal",
-      prompt: `Hvad er ${pct}% af ${num}?`,
-      answer: ans,
-      unit: "",
-      tolerance: 0.01,
-      format: "decimal",
-      hint: "(pct/100) × tal.",
-      steps: [`${pct}/100 = ${roundTo(pct / 100, 4)}`, `${roundTo(pct / 100, 4)} × ${num} = ${ans}`],
-    };
-  };
-
-  // Arcade: vi dropper “omvendt procent” fordi det er langsomt
-  return Math.random() < 0.55 ? makePercentOf() : makeDiscount();
-}
-
 function genGeometry(diff) {
   const w = randInt(4, 12 + diff.G + Math.floor(diff.L / 2));
   const l = randInt(5, 14 + diff.G + diff.L);
@@ -443,12 +384,8 @@ function genRates(diff) {
   const minutes = choice([10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 75, 90]);
   const hours = minutes / 60;
 
-  const makeDistance = () => {
-    const ans = roundTo(speed * hours, 2);
-    return { topicKey: "rates", title: "Distance", prompt: `Du bevæger dig med ${speed} km/t i ${minutes} minutter. Hvor langt?`, answer: ans, unit: "km", tolerance: 0.02, format: "decimal", hint: "Hastighed × tid (i timer).", steps: [`${minutes}/60 = ${roundTo(hours, 4)} t`, `${speed} × ${roundTo(hours, 4)} = ${ans}`] };
-  };
-
-  return makeDistance();
+  const ans = roundTo(speed * hours, 2);
+  return { topicKey: "rates", title: "Distance", prompt: `Du bevæger dig med ${speed} km/t i ${minutes} minutter. Hvor langt?`, answer: ans, unit: "km", tolerance: 0.02, format: "decimal", hint: "Hastighed × tid (i timer).", steps: [`${minutes}/60 = ${roundTo(hours, 4)} t`, `${speed} × ${roundTo(hours, 4)} = ${ans}`] };
 }
 
 function genByTopic(topicKey, diff) {
@@ -480,7 +417,6 @@ function pickTopicWeighted(allowedTopics, grade) {
   const weights = new Map();
   for (const k of pool) weights.set(k, 1);
 
-  // “9. klasse-agtigt” i blandet
   if (G >= 8) {
     if (weights.has("equations")) weights.set("equations", (weights.get("equations") ?? 1) + 2);
     if (weights.has("percent")) weights.set("percent", (weights.get("percent") ?? 1) + 2);
@@ -509,49 +445,175 @@ function generateProblem(level, grade, allowedTopics) {
   return { id: uid(), level: diff.L, grade: diff.G, ...p };
 }
 
-/** Arcade problem: nemmere + runde procent-tal */
-function generateArcadeProblem(level, grade, allowedTopics) {
-  const diff = getArcadeDifficulty(level, grade);
+// ---------------- Arcade: SUPER “pæne” opgaver ----------------
+const ARCADE_DIFFICULTIES = [
+  { key: "let", name: "Let", desc: "Super nemt. Confidence boost." },
+  { key: "nem", name: "Nem", desc: "Stadig nemt, men lidt mere." },
+  { key: "svær", name: "Svær", desc: "Hurtigt, men kræver fokus." },
+];
 
-  const all = TOPICS.map((t) => t.key);
-  const pool = Array.isArray(allowedTopics) && allowedTopics.length > 0 ? allowedTopics : all;
+function genArcadeAddSub(diffKey) {
+  if (diffKey === "let") {
+    const a = randInt(1, 12);
+    const b = randInt(1, 12);
+    const op = Math.random() < 0.7 ? "+" : "-";
+    if (op === "+") return { topicKey: "addsub", title: "Plus", prompt: `Regn ud: ${a} + ${b}`, answer: a + b, unit: "", tolerance: 0, format: "integer", hint: "Læg sammen.", steps: [`${a} + ${b} = ${a + b}`] };
+    const hi = Math.max(a, b);
+    const lo = Math.min(a, b);
+    return { topicKey: "addsub", title: "Minus", prompt: `Regn ud: ${hi} − ${lo}`, answer: hi - lo, unit: "", tolerance: 0, format: "integer", hint: "Træk fra.", steps: [`${hi} − ${lo} = ${hi - lo}`] };
+  }
 
-  // hurtige emner lidt mere sandsynlige
-  const weights = new Map();
-  for (const k of pool) weights.set(k, 1);
-  if (weights.has("addsub")) weights.set("addsub", (weights.get("addsub") ?? 1) + 1.0);
-  if (weights.has("muldiv")) weights.set("muldiv", (weights.get("muldiv") ?? 1) + 0.8);
-  if (weights.has("percent")) weights.set("percent", (weights.get("percent") ?? 1) + 0.5);
-  if (weights.has("equations")) weights.set("equations", Math.max(0.35, (weights.get("equations") ?? 1) - 0.5));
+  if (diffKey === "nem") {
+    const a = randInt(10, 60);
+    const b = randInt(5, 50);
+    const op = Math.random() < 0.6 ? "+" : "-";
+    if (op === "+") return { topicKey: "addsub", title: "Plus", prompt: `Regn ud: ${a} + ${b}`, answer: a + b, unit: "", tolerance: 0, format: "integer", hint: "Læg sammen.", steps: [`${a} + ${b} = ${a + b}`] };
+    const hi = Math.max(a, b);
+    const lo = Math.min(a, b);
+    return { topicKey: "addsub", title: "Minus", prompt: `Regn ud: ${hi} − ${lo}`, answer: hi - lo, unit: "", tolerance: 0, format: "integer", hint: "Træk fra.", steps: [`${hi} − ${lo} = ${hi - lo}`] };
+  }
 
+  // svær
+  const a = randInt(40, 180);
+  const b = randInt(20, 160);
+  const c = randInt(10, 120);
+  const form = choice(["a+b-c", "(a+b)-c", "a-(b-c)"]);
+  if (form === "a+b-c") {
+    const ans = a + b - c;
+    return { topicKey: "addsub", title: "3-led", prompt: `Regn ud: ${a} + ${b} − ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer", hint: "Fra venstre mod højre.", steps: [`${a} + ${b} = ${a + b}`, `${a + b} − ${c} = ${ans}`] };
+  }
+  if (form === "(a+b)-c") {
+    const inside = a + b;
+    const ans = inside - c;
+    return { topicKey: "addsub", title: "Parentes", prompt: `Regn ud: (${a} + ${b}) − ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer", hint: "Først parentes.", steps: [`${a} + ${b} = ${inside}`, `${inside} − ${c} = ${ans}`] };
+  }
+  const inside = b - c;
+  const ans = a - inside;
+  return { topicKey: "addsub", title: "Parentes", prompt: `Regn ud: ${a} − (${b} − ${c})`, answer: ans, unit: "", tolerance: 0, format: "integer", hint: "Minus foran parentes.", steps: [`${b} − ${c} = ${inside}`, `${a} − ${inside} = ${ans}`] };
+}
+
+/**
+ * VIGTIGT: Division her er ALTID heltal:
+ * Vi laver total = a*b og spørger total ÷ b.
+ */
+function genArcadeMulDiv(diffKey) {
+  if (diffKey === "let") {
+    const b = randInt(2, 10);
+    const a = randInt(2, 12);
+    const doMul = Math.random() < 0.55;
+    if (doMul) {
+      return { topicKey: "muldiv", title: "Gange", prompt: `Regn ud: ${a} × ${b}`, answer: a * b, unit: "", tolerance: 0, format: "integer", hint: "Gang.", steps: [`${a} × ${b} = ${a * b}`] };
+    }
+    const total = a * b;
+    return { topicKey: "muldiv", title: "Division", prompt: `Regn ud: ${total} ÷ ${b}`, answer: a, unit: "", tolerance: 0, format: "integer", hint: "Del.", steps: [`${total} ÷ ${b} = ${a}`] };
+  }
+
+  if (diffKey === "nem") {
+    const b = randInt(2, 12);
+    const a = randInt(3, 20);
+    const doMul = Math.random() < 0.50;
+    if (doMul) {
+      return { topicKey: "muldiv", title: "Gange", prompt: `Regn ud: ${a} × ${b}`, answer: a * b, unit: "", tolerance: 0, format: "integer", hint: "Gang.", steps: [`${a} × ${b} = ${a * b}`] };
+    }
+    const total = a * b;
+    return { topicKey: "muldiv", title: "Division", prompt: `Regn ud: ${total} ÷ ${b}`, answer: a, unit: "", tolerance: 0, format: "integer", hint: "Del.", steps: [`${total} ÷ ${b} = ${a}`] };
+  }
+
+  // svær (men stadig “pænt”)
+  const b = randInt(3, 18);
+  const a = randInt(6, 30);
+  const doMul = Math.random() < 0.40;
+  if (doMul) {
+    const m = randInt(6, 25);
+    const n = randInt(6, 25);
+    return { topicKey: "muldiv", title: "Gange", prompt: `Regn ud: ${m} × ${n}`, answer: m * n, unit: "", tolerance: 0, format: "integer", hint: "Gang.", steps: [`${m} × ${n} = ${m * n}`] };
+  }
+  const total = a * b;
+  return { topicKey: "muldiv", title: "Division", prompt: `Regn ud: ${total} ÷ ${b}`, answer: a, unit: "", tolerance: 0, format: "integer", hint: "Del.", steps: [`${total} ÷ ${b} = ${a}`] };
+}
+
+function genArcadePercent(diffKey) {
+  const pctPool = diffKey === "let" ? [10, 20, 25, 50] : diffKey === "nem" ? [5, 10, 15, 20, 25, 30, 50] : [5, 10, 12.5, 15, 20, 25, 30, 40, 50];
+  const roundNums = diffKey === "let" ? [20, 40, 60, 80, 100] : diffKey === "nem" ? [30, 40, 50, 60, 70, 80, 90, 100, 120, 150] : [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300];
+
+  const pct = choice(pctPool);
+  const num = choice(roundNums);
+
+  if (Math.random() < 0.55) {
+    const ans = roundTo((pct / 100) * num, 2);
+    return { topicKey: "percent", title: "Procent", prompt: `Hvad er ${pct}% af ${num}?`, answer: ans, unit: "", tolerance: 0.01, format: "decimal", hint: "pct/100 × tal.", steps: [`${pct}/100 × ${num} = ${ans}`] };
+  }
+  const price = choice(roundNums);
+  const factor = 1 - pct / 100;
+  const ans = roundTo(price * factor, 2);
+  return { topicKey: "percent", title: "Rabat", prompt: `En vare koster ${price} kr. Der er ${pct}% rabat. Hvad koster den efter rabat?`, answer: ans, unit: "kr", tolerance: 0.01, format: "decimal", hint: "Pris × (1 − pct/100).", steps: [`${price} × (1 − ${pct}/100) = ${ans}`] };
+}
+
+function genArcadeEquation(diffKey) {
+  // kun ved "svær" (og lidt ved "nem")
+  if (diffKey === "let") return null;
+
+  if (diffKey === "nem") {
+    if (Math.random() < 0.65) return null;
+    const x = randInt(2, 12);
+    const a = randInt(3, 20);
+    const b = a + x;
+    return { topicKey: "equations", title: "Ligning", prompt: `Løs: x + ${a} = ${b}. Hvad er x?`, answer: x, unit: "", tolerance: 0, format: "integer", hint: "Minus a.", steps: [`x = ${b} − ${a} = ${x}`] };
+  }
+
+  // svær: stadig hurtigt (ingen 2-trins her)
+  if (Math.random() < 0.35) return null;
+  const x = randInt(3, 20);
+  const a = randInt(8, 35);
+  const b = a + x;
+  return { topicKey: "equations", title: "Ligning", prompt: `Løs: x + ${a} = ${b}. Hvad er x?`, answer: x, unit: "", tolerance: 0, format: "integer", hint: "Minus a.", steps: [`x = ${b} − ${a} = ${x}`] };
+}
+
+function generateArcadeProblem(grade, allowedTopics, arcadeDiffKey) {
+  const all = ["addsub", "muldiv", "percent", "equations"]; // Arcade holder vi til “hurtige typer”
+  const pool = Array.isArray(allowedTopics) && allowedTopics.length > 0 ? allowedTopics.filter((k) => all.includes(k)) : all;
+
+  // hvis brugeren har valgt noget “langsomt” (geo/rates/money), ignorer i Arcade
+  const usablePool = pool.length ? pool : all;
+
+  // Vægte: på let/nem vil vi MEGET ofte give add/sub + mul/div
   const bag = [];
-  for (const k of pool) {
-    const w = weights.get(k) ?? 1;
-    const copies = clamp(Math.round(w * 6), 2, 18);
+  for (const k of usablePool) {
+    let w = 1;
+    if (arcadeDiffKey === "let") {
+      if (k === "addsub") w = 4;
+      if (k === "muldiv") w = 3;
+      if (k === "percent") w = 1.2;
+      if (k === "equations") w = 0.2;
+    } else if (arcadeDiffKey === "nem") {
+      if (k === "addsub") w = 3;
+      if (k === "muldiv") w = 2.6;
+      if (k === "percent") w = 1.4;
+      if (k === "equations") w = 0.6;
+    } else {
+      if (k === "addsub") w = 2.2;
+      if (k === "muldiv") w = 2.0;
+      if (k === "percent") w = 1.6;
+      if (k === "equations") w = 1.0;
+    }
+    const copies = clamp(Math.round(w * 6), 1, 24);
     for (let i = 0; i < copies; i++) bag.push(k);
   }
 
-  for (let tries = 0; tries < 10; tries++) {
-    const topicKey = choice(bag);
+  const pick = choice(bag);
 
-    if (topicKey === "percent") {
-      const p = genPercentArcade(diff);
-      return { id: uid(), level: diff.L, grade: diff.G, ...p };
-    }
-
-    const p = genByTopic(topicKey, diff);
-
-    // Arcade: undgå “omvendt procent” helt
-    if (p.topicKey === "percent" && p.title === "Omvendt procent") continue;
-
-    // Arcade: undgå hard equations (for en sikkerheds skyld)
-    if (p.topicKey === "equations" && String(p.prompt).includes("x +") === false) continue;
-
-    return { id: uid(), level: diff.L, grade: diff.G, ...p };
+  // lav opgaven
+  if (pick === "addsub") return { id: uid(), level: 1, grade: clamp(grade ?? 5, 1, 9), ...genArcadeAddSub(arcadeDiffKey) };
+  if (pick === "muldiv") return { id: uid(), level: 1, grade: clamp(grade ?? 5, 1, 9), ...genArcadeMulDiv(arcadeDiffKey) };
+  if (pick === "percent") return { id: uid(), level: 1, grade: clamp(grade ?? 5, 1, 9), ...genArcadePercent(arcadeDiffKey) };
+  if (pick === "equations") {
+    const eq = genArcadeEquation(arcadeDiffKey);
+    if (eq) return { id: uid(), level: 1, grade: clamp(grade ?? 5, 1, 9), ...eq };
+    // fallback til noget hurtigt
+    return { id: uid(), level: 1, grade: clamp(grade ?? 5, 1, 9), ...genArcadeAddSub(arcadeDiffKey) };
   }
 
-  const p = genAddSub(diff);
-  return { id: uid(), level: diff.L, grade: diff.G, ...p };
+  return { id: uid(), level: 1, grade: clamp(grade ?? 5, 1, 9), ...genArcadeAddSub(arcadeDiffKey) };
 }
 
 // ---------------- Achievements ----------------
@@ -687,9 +749,9 @@ function DayDot({ label, filled, isToday }) {
 
 /**
  * ArcadeHorseRaceCanvas
- * - Galop-bane: græs + dirt + rails + checkered finish
  * - 5 lanes, god plads
- * - Heste er mere “heste-agtige”
+ * - Galop-bane: græs + dirt + rails + checkered finish
+ * - Heste mere “heste-agtige”
  * - Kun label “DIN HEST” på spillerens
  */
 function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
@@ -735,30 +797,11 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
     ctx.fillStyle = "rgba(11, 33, 20, 1)";
     ctx.fillRect(0, 0, size.w, size.h);
 
-    // tiny texture
-    for (let i = 0; i < 380; i++) {
-      const x = Math.random() * size.w;
-      const y = Math.random() * size.h;
-      ctx.fillStyle = Math.random() < 0.5 ? "rgba(34,197,94,0.08)" : "rgba(16,185,129,0.06)";
-      ctx.fillRect(x, y, 2, 2);
-    }
-
     // dirt track
     ctx.fillStyle = "rgba(101, 67, 33, 0.76)";
     ctx.beginPath();
     ctx.roundRect(trackX, trackY, trackW, trackH, 26);
     ctx.fill();
-
-    // dirt streaks
-    for (let i = 0; i < 10; i++) {
-      ctx.strokeStyle = i % 2 === 0 ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      const yy = trackY + (trackH / 10) * i + 6;
-      ctx.moveTo(trackX + 24, yy);
-      ctx.lineTo(trackX + trackW - 24, yy);
-      ctx.stroke();
-    }
 
     // rails
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
@@ -816,7 +859,7 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
       ctx.roundRect(x - 22, centerY - 14 + bob, 44, 24, 10);
       ctx.fill();
 
-      // spots (if pattern)
+      // spots
       if (h.pattern === "spotted") {
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.beginPath();
@@ -836,15 +879,6 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
       ctx.fillStyle = h.accent;
       ctx.beginPath();
       ctx.ellipse(x + 28, centerY - 16 + bob, 12, 9, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // ear
-      ctx.fillStyle = "rgba(255,255,255,0.14)";
-      ctx.beginPath();
-      ctx.moveTo(x + 26, centerY - 27 + bob);
-      ctx.lineTo(x + 30, centerY - 22 + bob);
-      ctx.lineTo(x + 22, centerY - 22 + bob);
-      ctx.closePath();
       ctx.fill();
 
       // tail
@@ -873,7 +907,6 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
         ctx.stroke();
       }
 
-      // label ONLY for player
       if (isPlayer) {
         ctx.fillStyle = "rgba(255,255,255,0.88)";
         ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system";
@@ -903,7 +936,7 @@ export default function App() {
 
     const dk = dayKeyLocal();
     return {
-      profile: { name: "", grade: 5, dailyGoal: 10, themeKey: "navy", avatarKey: "dot" },
+      profile: { name: "", grade: 5, dailyGoal: 10, themeKey: "navy", avatarKey: "dot", arcadeDifficulty: "let" },
       game: { level: 1, xp: 0, points: 0, streak: 0, correct: 0, wrong: 0, allowedTopics: [], achievements: [] },
       meta: {
         dayKey: dk,
@@ -918,6 +951,15 @@ export default function App() {
       ui: { tab: "tasks" },
     };
   });
+
+  // Backwards compatibility (hvis localStorage ikke har arcadeDifficulty endnu)
+  useEffect(() => {
+    if (!state?.profile) return;
+    if (!state.profile.arcadeDifficulty) {
+      setState((s) => ({ ...s, profile: { ...s.profile, arcadeDifficulty: "let" } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { profile, game, meta, ui, arcade } = state;
 
@@ -945,7 +987,7 @@ export default function App() {
 
   const [arcadeRunning, setArcadeRunning] = useState(false);
   const [arcadeScore, setArcadeScore] = useState(0);
-  const [arcadeProblem, setArcadeProblem] = useState(() => generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
+  const [arcadeProblem, setArcadeProblem] = useState(() => generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
   const [arcadeInput, setArcadeInput] = useState("");
   const [arcadeMsg, setArcadeMsg] = useState(null);
 
@@ -953,7 +995,7 @@ export default function App() {
   const [horsePos, setHorsePos] = useState(() => Array.from({ length: HORSE_COUNT }, () => 0.02));
   const horseTargetRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.02));
 
-  // CPU speeds: “per second” (så de vinder hvis du ikke spiller)
+  // CPU speeds per second
   const cpuSpeedsPerSecRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.0075));
 
   // UI polish
@@ -1027,7 +1069,7 @@ export default function App() {
   function resetAll() {
     const dk = dayKeyLocal();
     setState({
-      profile: { name: "", grade: 5, dailyGoal: 10, themeKey: "navy", avatarKey: "dot" },
+      profile: { name: "", grade: 5, dailyGoal: 10, themeKey: "navy", avatarKey: "dot", arcadeDifficulty: "let" },
       game: { level: 1, xp: 0, points: 0, streak: 0, correct: 0, wrong: 0, allowedTopics: [], achievements: [] },
       meta: {
         dayKey: dk,
@@ -1086,9 +1128,15 @@ export default function App() {
   // new training problem when level/grade/topics change
   useEffect(() => {
     swapProblem(generateProblem(game.level, profile.grade, game.allowedTopics));
-    if (!arcadeRunning) setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
+    if (!arcadeRunning) setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.level, profile.grade, game.allowedTopics]);
+
+  // whenever arcade difficulty changes -> new arcade problem (if not running)
+  useEffect(() => {
+    if (!arcadeRunning) setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.arcadeDifficulty]);
 
   // daily reroll if grade changes (if not done)
   useEffect(() => {
@@ -1297,7 +1345,7 @@ export default function App() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // “Physics” tick: move horses even if user does nothing
+  // Move horses even if user does nothing
   useEffect(() => {
     if (!arcadeRunning) return;
 
@@ -1308,10 +1356,9 @@ export default function App() {
 
       // Player auto = lidt frem (men langsommere end CPU)
       const playerAutoPerSec = clamp(0.0038 + (profile.grade - 1) * 0.00012, 0.0038, 0.0048);
-
       targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) + playerAutoPerSec * dt, 0, 1);
 
-      // CPU horses: hurtigere end player (så de vinder ved passivitet)
+      // CPU horses: hurtigere end player
       const speeds = cpuSpeedsPerSecRef.current;
       for (let i = 0; i < HORSE_COUNT; i++) {
         if (i === PLAYER_INDEX) continue;
@@ -1336,13 +1383,11 @@ export default function App() {
   }, [arcadeRunning, profile.grade]);
 
   function horsePalette() {
-    // Hestefarver: “samme tone over kroppen”
-    // Player er brun (chestnut) + label
     return [
-      { color: "rgba(150, 78, 43, 0.92)", accent: "rgba(110, 56, 32, 0.92)", pattern: "solid" }, // brun
-      { color: "rgba(240, 240, 235, 0.92)", accent: "rgba(190, 190, 185, 0.92)", pattern: "solid" }, // hvid/grå
+      { color: "rgba(150, 78, 43, 0.92)", accent: "rgba(110, 56, 32, 0.92)", pattern: "solid" }, // player brun
+      { color: "rgba(240, 240, 235, 0.92)", accent: "rgba(190, 190, 185, 0.92)", pattern: "solid" }, // hvid
       { color: "rgba(55, 55, 55, 0.92)", accent: "rgba(30, 30, 30, 0.92)", pattern: "solid" }, // sort
-      { color: "rgba(110, 85, 55, 0.92)", accent: "rgba(80, 60, 40, 0.92)", pattern: "solid" }, // brun (bay)
+      { color: "rgba(110, 85, 55, 0.92)", accent: "rgba(80, 60, 40, 0.92)", pattern: "solid" }, // brun
       { color: "rgba(235, 235, 235, 0.92)", accent: "rgba(190, 190, 190, 0.92)", pattern: "spotted" }, // plettet
     ];
   }
@@ -1351,16 +1396,15 @@ export default function App() {
     setArcadeMsg(null);
     setArcadeScore(0);
     setArcadeInput("");
-    setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
+    setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
 
     horseTargetRef.current = Array.from({ length: HORSE_COUNT }, () => 0.02);
     setHorsePos(Array.from({ length: HORSE_COUNT }, () => 0.02));
 
-    // CPU speeds per second: lidt random + altid hurtigere end player auto
+    // CPU speeds: altid hurtigere end player auto (og lidt random)
     const speeds = Array.from({ length: HORSE_COUNT }, () => 0.0);
     for (let i = 0; i < HORSE_COUNT; i++) {
       if (i === PLAYER_INDEX) continue;
-      // ca 0.0072..0.0102 per sec (ret tydeligt hurtigere end player)
       speeds[i] = roundTo(0.0072 + Math.random() * 0.003, 4);
     }
     cpuSpeedsPerSecRef.current = speeds;
@@ -1382,7 +1426,7 @@ export default function App() {
   }
 
   function arcadeNextProblem() {
-    setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
+    setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
     setArcadeInput("");
   }
 
@@ -1414,8 +1458,13 @@ export default function App() {
     // Rigtigt: boost din hest
     setArcadeScore((s) => s + 1);
 
-    const baseBoost = 0.030; // større boost, fordi CPU er hurtigere konstant
-    const gradeBoost = clamp((profile.grade - 1) * 0.0015, 0, 0.012);
+    // Boost lidt afhængig af valgte sværhedsgrad:
+    // let: du får lidt mere boost (for at føles fedt)
+    // svær: lidt mindre boost (fordi opgaverne er hårdere)
+    const diffKey = profile.arcadeDifficulty || "let";
+    const baseBoost = diffKey === "let" ? 0.036 : diffKey === "nem" ? 0.032 : 0.028;
+    const gradeBoost = clamp((profile.grade - 1) * 0.0012, 0, 0.010);
+
     targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) + baseBoost + gradeBoost, 0, 1);
 
     // lidt “pres” på de andre også
@@ -1427,7 +1476,6 @@ export default function App() {
     setArcadeMsg("Korrekt! BOOST! ⚡");
     arcadeNextProblem();
 
-    // hvis du passerer målstregen
     if ((targets[PLAYER_INDEX] ?? 0) >= finishLine) {
       setTimeout(() => endArcade(PLAYER_INDEX), 250);
     }
@@ -1745,12 +1793,25 @@ export default function App() {
           <div className="grid gap-4 lg:grid-cols-3">
             <Panel className="lg:col-span-1">
               <div className="text-lg font-extrabold">Arcade: Heste-løb</div>
-              <div className="mt-2 text-sm text-white/75">
-                Dumt-nemt:
-                <div className="mt-2 space-y-1 text-white/70">
-                  <div>• CPU løber hele tiden (og er hurtigere)</div>
-                  <div>• Du vinder ved at svare rigtigt og booste</div>
-                  <div>• Ingen timer — det slutter ved målstregen 🏁</div>
+
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
+                <div className="text-xs text-white/70">Sværhedsgrad (Arcade-opgaver)</div>
+                <select
+                  value={profile.arcadeDifficulty || "let"}
+                  onChange={(e) => setProfile({ arcadeDifficulty: e.target.value })}
+                  className="mt-2 w-full rounded-2xl border border-white/10 px-4 py-3 bg-slate-950/40 shadow-sm text-white"
+                >
+                  {ARCADE_DIFFICULTIES.map((d) => (
+                    <option key={d.key} value={d.key}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 text-xs text-white/60">
+                  {ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.desc}
+                </div>
+                <div className="mt-2 text-[11px] text-white/55">
+                  (Let = meget små tal + pæne divisioner. Svær = større tal, men stadig hurtige opgaver.)
                 </div>
               </div>
 
@@ -1789,7 +1850,7 @@ export default function App() {
               </div>
 
               <div className="mt-4 text-xs text-white/60">
-                Tip: Procenter i arcade er lavet med “runde tal” (så det er hurtigt at regne).
+                Tip: Hvis Arcade stadig føles hård → sæt den til <b>Let</b>.
               </div>
             </Panel>
 
@@ -1798,6 +1859,7 @@ export default function App() {
                 <div className="flex flex-wrap gap-2 items-center">
                   <Chip>Race</Chip>
                   <Chip>Klassetrin {profile.grade}.</Chip>
+                  <Chip>Arcade: {ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.name}</Chip>
                   <Chip>Emner: {chosenTopicsText}</Chip>
                 </div>
                 <div className="flex gap-2">
@@ -1808,7 +1870,7 @@ export default function App() {
                       setArcadeMsg(null);
                       setArcadeScore(0);
                       setArcadeInput("");
-                      setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
+                      setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
                     }}
                     disabled={arcadeRunning}
                     title={arcadeRunning ? "Stop først, før du resetter" : "Reset"}
@@ -1845,8 +1907,12 @@ export default function App() {
                       className={"mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 text-lg bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 text-white disabled:opacity-60 " + theme.ring}
                     />
                     <div className="mt-2 flex gap-2 flex-wrap">
-                      <SmallBtn onClick={() => setArcadeInput("")} disabled={!arcadeRunning}>Ryd</SmallBtn>
-                      <SmallBtn onClick={() => setArcadeMsg(null)} disabled={!arcadeRunning}>Skjul status</SmallBtn>
+                      <SmallBtn onClick={() => setArcadeInput("")} disabled={!arcadeRunning}>
+                        Ryd
+                      </SmallBtn>
+                      <SmallBtn onClick={() => setArcadeMsg(null)} disabled={!arcadeRunning}>
+                        Skjul status
+                      </SmallBtn>
                     </div>
                   </div>
 
@@ -1864,7 +1930,7 @@ export default function App() {
                 </div>
 
                 <div className="mt-3 text-xs text-white/60">
-                  Tip: Hvis du ikke svarer, løber CPU forbi dig 😄
+                  Division i Arcade er nu altid “pæn” (heltal). Ingen 342÷19 😄
                 </div>
               </div>
             </Panel>
@@ -1939,6 +2005,12 @@ export default function App() {
                   </div>
                 </details>
 
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
+                  <div className="text-xs text-white/70">Arcade sværhedsgrad</div>
+                  <div className="font-extrabold mt-1">{ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.name}</div>
+                  <div className="text-xs text-white/60 mt-1">Du kan ændre den i Arcade-tab.</div>
+                </div>
+
                 <button
                   onClick={resetAll}
                   className="w-full rounded-2xl px-4 py-3 font-bold border border-white/10 bg-white/10 hover:bg-white/15 active:scale-[0.98] transition shadow-sm text-white"
@@ -1951,7 +2023,7 @@ export default function App() {
             <Panel className="lg:col-span-2">
               <div className="text-lg font-extrabold text-white">Info</div>
               <div className="mt-2 text-white/80">
-                Mini games bruger også dit klassetrin + emner. Så når du ændrer klassetrin her, bliver Arcade også justeret.
+                Træning bruger “progression” (sværere over tid). Arcade er lavet til hurtige, simple confidence-boost opgaver.
               </div>
             </Panel>
           </div>
@@ -2016,20 +2088,23 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {/* DUM TESTLISTE:
-        1) Arcade uden timer:
-           - Start race → du ser ingen “Tid”-boks
-           - Hestene løber indtil én krydser målstregen
-
-        2) CPU hurtigere:
-           - Start race og gør INTET → CPU skal vinde
-           - Svar forkert et par gange → CPU skal vinde hurtigere
-
-        3) Procenter runde tal:
-           - Spil arcade til du får procent-opgaver
-           - Du bør se ting som “30% af 90” eller “pris 100 kr med 20% rabat”
-      */}
     </div>
   );
 }
+
+/**
+ * DUM TESTLISTE (til dig):
+ *
+ * 1) Arcade sværhedsgrad:
+ *    - Gå i Arcade-tab → vælg "Let"
+ *    - Du bør få super nemme opgaver (fx 7+5, 24÷6, 10% af 80)
+ *
+ * 2) Division “pæn”:
+ *    - Spil Arcade i 20-30 opgaver
+ *    - Du må IKKE se noget som 342÷19
+ *    - Du bør se ting som 72÷8, 180÷12, 96÷6
+ *
+ * 3) Store forskelle:
+ *    - Skift til "Let" → små tal
+ *    - Skift til "Svær" → større tal/3-led (men stadig ikke “beskidte” divisioner)
+ */
