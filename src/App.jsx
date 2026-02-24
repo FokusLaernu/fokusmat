@@ -995,8 +995,8 @@ export default function App() {
   const [horsePos, setHorsePos] = useState(() => Array.from({ length: HORSE_COUNT }, () => 0.02));
   const horseTargetRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.02));
 
-  // CPU speeds per second
-  const cpuSpeedsPerSecRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.0075));
+  // CPU speeds per second (HURTIGERE DEFAULT)
+  const cpuSpeedsPerSecRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.0105));
 
   // UI polish
   const [toast, setToast] = useState(null);
@@ -1331,13 +1331,13 @@ export default function App() {
   const goalPct = goal > 0 ? Math.round((done / goal) * 100) : 0;
 
   // ---------------- Arcade movement (unlimited) ----------------
-  // Smooth lerp animation
+  // Smooth lerp animation (HURTIGERE / MERE SNAPPY)
   const rafRef = useRef(null);
   useEffect(() => {
     const tick = () => {
       setHorsePos((prev) => {
         const targets = horseTargetRef.current;
-        return prev.map((p, i) => p + (targets[i] - p) * 0.14);
+        return prev.map((p, i) => p + (targets[i] - p) * 0.20);
       });
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -1345,24 +1345,24 @@ export default function App() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Move horses even if user does nothing
+  // Move horses even if user does nothing (HURTIGERE RACE)
   useEffect(() => {
     if (!arcadeRunning) return;
 
-    const intervalMs = 220;
+    const intervalMs = 140; // hurtigere tick => race slutter hurtigere
     const id = setInterval(() => {
       const dt = intervalMs / 1000;
       const targets = horseTargetRef.current;
 
-      // Player auto = lidt frem (men langsommere end CPU)
-      const playerAutoPerSec = clamp(0.0038 + (profile.grade - 1) * 0.00012, 0.0038, 0.0048);
+      // Player auto = lidt frem (men stadig langsommere end CPU)
+      const playerAutoPerSec = clamp(0.0056 + (profile.grade - 1) * 0.00018, 0.0056, 0.0069);
       targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) + playerAutoPerSec * dt, 0, 1);
 
       // CPU horses: hurtigere end player
       const speeds = cpuSpeedsPerSecRef.current;
       for (let i = 0; i < HORSE_COUNT; i++) {
         if (i === PLAYER_INDEX) continue;
-        targets[i] = clamp((targets[i] ?? 0) + (speeds[i] ?? 0.0075) * dt, 0, 1);
+        targets[i] = clamp((targets[i] ?? 0) + (speeds[i] ?? 0.0105) * dt, 0, 1);
       }
 
       // stop when someone finishes
@@ -1401,11 +1401,11 @@ export default function App() {
     horseTargetRef.current = Array.from({ length: HORSE_COUNT }, () => 0.02);
     setHorsePos(Array.from({ length: HORSE_COUNT }, () => 0.02));
 
-    // CPU speeds: altid hurtigere end player auto (og lidt random)
+    // CPU speeds: altid hurtigere end player auto (og lidt random) — HURTIGERE END FØR
     const speeds = Array.from({ length: HORSE_COUNT }, () => 0.0);
     for (let i = 0; i < HORSE_COUNT; i++) {
       if (i === PLAYER_INDEX) continue;
-      speeds[i] = roundTo(0.0072 + Math.random() * 0.003, 4);
+      speeds[i] = roundTo(0.0102 + Math.random() * 0.0042, 4);
     }
     cpuSpeedsPerSecRef.current = speeds;
 
