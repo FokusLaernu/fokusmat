@@ -4,14 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  * FOKUSMAT — App.jsx (paste hele filen)
  *
  * Opdatering (Arcade: Heste-løb):
- * - 5 heste i alt (1 spiller + 4 “andre”)
- * - De løber langsommere (mindre boost + lavere “konstant løb”)
- * - Mere plads mellem hestene (flere lanes + højere canvas)
- * - Ingen “CPU 1-5” navne — kun “DIN HEST” på din
- * - Ingen ekstra “dig” label under
- * - Banen er grøn/brun “galop-bane” med flot målstreg
- * - Din hest “galoperer” også lidt frem hele tiden (ikke stille)
- * - Arcade-opgaver gjort lidt nemmere (særligt til boost)
+ * ✅ CPU-heste er hurtigere (så de vinder hvis du ikke svarer / svarer forkert)
+ * ✅ Hestefarver (hvid, brun, sort, grå + plettet)
+ * ✅ Ingen tidsbegrænsning — race slutter først ved målstregen
+ * ✅ Procent-opgaver i Arcade bruger “runde tal” (fx 30% af 90, ikke 30% af 58)
+ * ✅ Kun label “DIN HEST” på din hest (ingen CPU-navne)
+ * ✅ Banen er galop-bane (græs + brun dirt + flot målstreg)
  */
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -62,7 +60,7 @@ function addDaysToDayKey(key, deltaDays) {
   return `${yy}-${mm}-${dd}`;
 }
 
-const STORAGE_KEY = "FOKUSMAT_APP_V11_ARCADE_HORSE_5";
+const STORAGE_KEY = "FOKUSMAT_APP_V12_ARCADE_HORSE_UNLIMITED";
 
 // --- Theme ---
 const THEMES = [
@@ -142,17 +140,14 @@ function getDifficulty(level, grade) {
   };
 }
 
-// Arcade difficulty: gør opgaver nemmere end træning
+// Arcade difficulty: nemmere end træning + færre “tunge” typer
 function getArcadeDifficulty(level, grade) {
-  // “2 levels nemmere” føles typisk rigtigt til 60 sek spil
   const L = clamp(level - 2, 1, 10);
   const base = getDifficulty(L, grade);
-
-  // Arcade: mindre multi-step / færre “svære” varianter
   return {
     ...base,
-    allowMultiStep: base.G >= 8 ? Math.random() < 0.15 : Math.random() < 0.10, // sjældent
-    allowHardEquations: false, // ikke 2x+... i arcade boost
+    allowMultiStep: false,
+    allowHardEquations: false,
     avoidTooEasy: false,
     multiStepChance: 0.12,
   };
@@ -319,6 +314,52 @@ function genPercent(diff) {
   return makeDiscount();
 }
 
+/** Arcade-percent: runde tal (så 30% af 90 osv) */
+function genPercentArcade(diff) {
+  const pctPool = [5, 10, 15, 20, 25, 30, 40, 50];
+
+  const roundNums = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300];
+  const roundPrices = [30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, 250, 300];
+
+  const makeDiscount = () => {
+    const price = choice(roundPrices);
+    const pct = choice(pctPool);
+    const factor = 1 - pct / 100;
+    const ans = roundTo(price * factor, 2);
+    return {
+      topicKey: "percent",
+      title: "Rabat",
+      prompt: `En vare koster ${price} kr. Der er ${pct}% rabat. Hvad koster den efter rabat?`,
+      answer: ans,
+      unit: "kr",
+      tolerance: 0.01,
+      format: "decimal",
+      hint: "Pris × (1 − pct/100).",
+      steps: [`Faktor: 1 − ${pct}/100 = ${roundTo(factor, 4)}`, `${price} × ${roundTo(factor, 4)} = ${ans} kr`],
+    };
+  };
+
+  const makePercentOf = () => {
+    const num = choice(roundNums);
+    const pct = choice(pctPool);
+    const ans = roundTo((pct / 100) * num, 2);
+    return {
+      topicKey: "percent",
+      title: "Procent af tal",
+      prompt: `Hvad er ${pct}% af ${num}?`,
+      answer: ans,
+      unit: "",
+      tolerance: 0.01,
+      format: "decimal",
+      hint: "(pct/100) × tal.",
+      steps: [`${pct}/100 = ${roundTo(pct / 100, 4)}`, `${roundTo(pct / 100, 4)} × ${num} = ${ans}`],
+    };
+  };
+
+  // Arcade: vi dropper “omvendt procent” fordi det er langsomt
+  return Math.random() < 0.55 ? makePercentOf() : makeDiscount();
+}
+
 function genGeometry(diff) {
   const w = randInt(4, 12 + diff.G + Math.floor(diff.L / 2));
   const l = randInt(5, 14 + diff.G + diff.L);
@@ -407,7 +448,6 @@ function genRates(diff) {
     return { topicKey: "rates", title: "Distance", prompt: `Du bevæger dig med ${speed} km/t i ${minutes} minutter. Hvor langt?`, answer: ans, unit: "km", tolerance: 0.02, format: "decimal", hint: "Hastighed × tid (i timer).", steps: [`${minutes}/60 = ${roundTo(hours, 4)} t`, `${speed} × ${roundTo(hours, 4)} = ${ans}`] };
   };
 
-  if (diff.avoidTooEasy) return makeDistance();
   return makeDistance();
 }
 
@@ -469,26 +509,21 @@ function generateProblem(level, grade, allowedTopics) {
   return { id: uid(), level: diff.L, grade: diff.G, ...p };
 }
 
-// Arcade problem: nemmere + undgå “omvendt procent” og “hard equations”
+/** Arcade problem: nemmere + runde procent-tal */
 function generateArcadeProblem(level, grade, allowedTopics) {
   const diff = getArcadeDifficulty(level, grade);
 
-  // Arcade: vægt “hurtige” emner højere
   const all = TOPICS.map((t) => t.key);
   const pool = Array.isArray(allowedTopics) && allowedTopics.length > 0 ? allowedTopics : all;
 
+  // hurtige emner lidt mere sandsynlige
   const weights = new Map();
   for (const k of pool) weights.set(k, 1);
+  if (weights.has("addsub")) weights.set("addsub", (weights.get("addsub") ?? 1) + 1.0);
+  if (weights.has("muldiv")) weights.set("muldiv", (weights.get("muldiv") ?? 1) + 0.8);
+  if (weights.has("percent")) weights.set("percent", (weights.get("percent") ?? 1) + 0.5);
+  if (weights.has("equations")) weights.set("equations", Math.max(0.35, (weights.get("equations") ?? 1) - 0.5));
 
-  // hurtige emner
-  if (weights.has("addsub")) weights.set("addsub", (weights.get("addsub") ?? 1) + 1.2);
-  if (weights.has("muldiv")) weights.set("muldiv", (weights.get("muldiv") ?? 1) + 0.9);
-  if (weights.has("percent")) weights.set("percent", (weights.get("percent") ?? 1) + 0.4);
-
-  // gør ligninger sjældnere i arcade, men ikke fjernet (hvis man vælger emnet)
-  if (weights.has("equations")) weights.set("equations", Math.max(0.35, (weights.get("equations") ?? 1) - 0.4));
-
-  // bag
   const bag = [];
   for (const k of pool) {
     const w = weights.get(k) ?? 1;
@@ -496,21 +531,25 @@ function generateArcadeProblem(level, grade, allowedTopics) {
     for (let i = 0; i < copies; i++) bag.push(k);
   }
 
-  // lille “reroll” for at undgå de sværeste varianter
   for (let tries = 0; tries < 10; tries++) {
     const topicKey = choice(bag);
-    let p = genByTopic(topicKey, diff);
 
-    // Undgå “omvendt procent” i arcade (det føles for langsomt)
+    if (topicKey === "percent") {
+      const p = genPercentArcade(diff);
+      return { id: uid(), level: diff.L, grade: diff.G, ...p };
+    }
+
+    const p = genByTopic(topicKey, diff);
+
+    // Arcade: undgå “omvendt procent” helt
     if (p.topicKey === "percent" && p.title === "Omvendt procent") continue;
 
-    // Undgå hard equations i arcade (vi satte allowHardEquations=false, men sikkerhedsnet)
+    // Arcade: undgå hard equations (for en sikkerheds skyld)
     if (p.topicKey === "equations" && String(p.prompt).includes("x +") === false) continue;
 
     return { id: uid(), level: diff.L, grade: diff.G, ...p };
   }
 
-  // fallback (hvis alt gik galt)
   const p = genAddSub(diff);
   return { id: uid(), level: diff.L, grade: diff.G, ...p };
 }
@@ -648,15 +687,15 @@ function DayDot({ label, filled, isToday }) {
 
 /**
  * ArcadeHorseRaceCanvas
- * - Galop-bane: grøn baggrund + brun “dirt track” + rails + checkered finish
- * - 5 lanes
- * - Hestene er mere “heste-agtige” (krop + hals + hoved + hale + ben)
- * - Kun label på spillerens: “DIN HEST”
+ * - Galop-bane: græs + dirt + rails + checkered finish
+ * - 5 lanes, god plads
+ * - Heste er mere “heste-agtige”
+ * - Kun label “DIN HEST” på spillerens
  */
 function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
-  const [size, setSize] = useState({ w: 800, h: 320 });
+  const [size, setSize] = useState({ w: 800, h: 340 });
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -666,7 +705,7 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
       const rect = el.getBoundingClientRect();
       setSize({
         w: Math.max(320, Math.floor(rect.width)),
-        h: 320, // mere plads mellem lanes
+        h: 340,
       });
     });
     ro.observe(el);
@@ -683,7 +722,7 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
     if (!ctx) return;
 
     const now = Date.now();
-    const t = now / 140; // tempo til ben-animation
+    const t = now / 150;
 
     const pad = 18;
     const trackX = pad;
@@ -691,26 +730,26 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
     const trackW = size.w - pad * 2;
     const trackH = size.h - pad * 2 - 36;
 
-    // --- Background grass ---
+    // grass
     ctx.clearRect(0, 0, size.w, size.h);
-    ctx.fillStyle = "rgba(11, 33, 20, 1)"; // mørk grøn
+    ctx.fillStyle = "rgba(11, 33, 20, 1)";
     ctx.fillRect(0, 0, size.w, size.h);
 
-    // grass “texture” (simple dots)
-    for (let i = 0; i < 420; i++) {
+    // tiny texture
+    for (let i = 0; i < 380; i++) {
       const x = Math.random() * size.w;
       const y = Math.random() * size.h;
       ctx.fillStyle = Math.random() < 0.5 ? "rgba(34,197,94,0.08)" : "rgba(16,185,129,0.06)";
       ctx.fillRect(x, y, 2, 2);
     }
 
-    // --- Dirt track ---
-    ctx.fillStyle = "rgba(101, 67, 33, 0.75)"; // brun
+    // dirt track
+    ctx.fillStyle = "rgba(101, 67, 33, 0.76)";
     ctx.beginPath();
     ctx.roundRect(trackX, trackY, trackW, trackH, 26);
     ctx.fill();
 
-    // light “dirt streaks”
+    // dirt streaks
     for (let i = 0; i < 10; i++) {
       ctx.strokeStyle = i % 2 === 0 ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
       ctx.lineWidth = 3;
@@ -728,10 +767,9 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
     ctx.roundRect(trackX + 8, trackY + 8, trackW - 16, trackH - 16, 22);
     ctx.stroke();
 
-    // lanes (5)
+    // lanes
     const n = Math.max(2, horses?.length || 2);
     const laneH = trackH / n;
-
     ctx.strokeStyle = "rgba(255,255,255,0.14)";
     ctx.lineWidth = 2;
     for (let i = 1; i < n; i++) {
@@ -742,59 +780,66 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
       ctx.stroke();
     }
 
-    // finish line
+    // finish line + checkers
     const finishX = trackX + trackW * finishLine;
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(255,255,255,0.38)";
+    ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.moveTo(finishX, trackY - 6);
     ctx.lineTo(finishX, trackY + trackH + 6);
     ctx.stroke();
 
-    // checkered flag pattern
     const sq = 9;
     for (let y = trackY - 2; y < trackY + trackH + 2; y += sq) {
       for (let x = finishX - 12; x < finishX + 12; x += sq) {
         const on = ((Math.floor((y - trackY) / sq) + Math.floor((x - (finishX - 12)) / sq)) % 2) === 0;
-        ctx.fillStyle = on ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.18)";
+        ctx.fillStyle = on ? "rgba(255,255,255,0.30)" : "rgba(0,0,0,0.20)";
         ctx.fillRect(x, y, sq, sq);
       }
     }
 
-    // helper: draw horse-ish
-    const drawHorse = (pos, laneIndex, color, accent, isPlayer) => {
+    const drawHorse = (h, laneIndex, isPlayer) => {
       const centerY = trackY + laneH * laneIndex + laneH * 0.5;
-      const x = trackX + trackW * clamp(pos, 0, 1);
+      const x = trackX + trackW * clamp(h.pos, 0, 1);
 
-      // “bob” for gallop feel
-      const bob = Math.sin(t + laneIndex * 1.3) * 2.2;
+      const bob = Math.sin(t + laneIndex * 1.2) * 2.2;
 
       // shadow
       ctx.fillStyle = "rgba(0,0,0,0.25)";
       ctx.beginPath();
-      ctx.ellipse(x, centerY + 14, 26, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, centerY + 16, 26, 8, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // body
-      ctx.fillStyle = color;
+      ctx.fillStyle = h.color;
       ctx.beginPath();
       ctx.roundRect(x - 22, centerY - 14 + bob, 44, 24, 10);
       ctx.fill();
 
+      // spots (if pattern)
+      if (h.pattern === "spotted") {
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath();
+        ctx.ellipse(x - 6, centerY - 8 + bob, 6, 4, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(x + 6, centerY - 2 + bob, 7, 5, -0.4, 0, Math.PI * 2);
+        ctx.ellipse(x + 0, centerY + 4 + bob, 5, 4, 0.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       // neck
-      ctx.fillStyle = color;
+      ctx.fillStyle = h.color;
       ctx.beginPath();
       ctx.roundRect(x + 10, centerY - 20 + bob, 14, 16, 8);
       ctx.fill();
 
       // head
-      ctx.fillStyle = accent;
+      ctx.fillStyle = h.accent;
       ctx.beginPath();
       ctx.ellipse(x + 28, centerY - 16 + bob, 12, 9, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // ear
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillStyle = "rgba(255,255,255,0.14)";
       ctx.beginPath();
       ctx.moveTo(x + 26, centerY - 27 + bob);
       ctx.lineTo(x + 30, centerY - 22 + bob);
@@ -803,16 +848,16 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
       ctx.fill();
 
       // tail
-      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.strokeStyle = "rgba(0,0,0,0.18)";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(x - 22, centerY - 4 + bob);
       ctx.quadraticCurveTo(x - 34, centerY + 2 + bob, x - 30, centerY + 12 + bob);
       ctx.stroke();
 
-      // legs (simple gallop swing)
-      const legSwing = Math.sin(t * 1.2 + laneIndex) * 5;
-      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      // legs
+      const legSwing = Math.sin(t * 1.25 + laneIndex) * 5;
+      ctx.strokeStyle = "rgba(0,0,0,0.18)";
       ctx.lineWidth = 3;
 
       const legs = [
@@ -830,17 +875,14 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
 
       // label ONLY for player
       if (isPlayer) {
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.font = "800 12px ui-sans-serif, system-ui, -apple-system";
-        ctx.fillText("DIN HEST", x - 26, centerY - 24 + bob);
+        ctx.fillStyle = "rgba(255,255,255,0.88)";
+        ctx.font = "900 12px ui-sans-serif, system-ui, -apple-system";
+        ctx.fillText("DIN HEST", x - 28, centerY - 26 + bob);
       }
     };
 
-    // draw horses
     if (Array.isArray(horses)) {
-      horses.forEach((h, idx) => {
-        drawHorse(h.pos, idx, h.color, h.accent, idx === playerIndex);
-      });
+      horses.forEach((h, idx) => drawHorse(h, idx, idx === playerIndex));
     }
   }, [size, horses, playerIndex, finishLine]);
 
@@ -872,10 +914,7 @@ export default function App() {
         maxStreak: 0,
         dailyCountedInGoalDayKey: null,
       },
-      arcade: {
-        bestScore: 0,
-        lastScore: 0,
-      },
+      arcade: { bestScore: 0, lastScore: 0 },
       ui: { tab: "tasks" },
     };
   });
@@ -899,26 +938,25 @@ export default function App() {
   const [dailyInput, setDailyInput] = useState("");
   const [dailyFeedback, setDailyFeedback] = useState(null);
 
-  // arcade (mini game)
+  // arcade
   const HORSE_COUNT = 5;
   const PLAYER_INDEX = 0;
+  const finishLine = 0.92;
 
   const [arcadeRunning, setArcadeRunning] = useState(false);
-  const [arcadeTimeLeft, setArcadeTimeLeft] = useState(60);
   const [arcadeScore, setArcadeScore] = useState(0);
   const [arcadeProblem, setArcadeProblem] = useState(() => generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
   const [arcadeInput, setArcadeInput] = useState("");
   const [arcadeMsg, setArcadeMsg] = useState(null);
 
-  // positions (0..1) for 5 horses
+  // positions for 5 horses
   const [horsePos, setHorsePos] = useState(() => Array.from({ length: HORSE_COUNT }, () => 0.02));
   const horseTargetRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.02));
 
-  const cpuSpeedsRef = useRef([]); // speeds for cpu horses
+  // CPU speeds: “per second” (så de vinder hvis du ikke spiller)
+  const cpuSpeedsPerSecRef = useRef(Array.from({ length: HORSE_COUNT }, () => 0.0075));
 
-  const finishLine = 0.92;
-
-  // simple animations / toasts
+  // UI polish
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
 
@@ -1048,7 +1086,6 @@ export default function App() {
   // new training problem when level/grade/topics change
   useEffect(() => {
     swapProblem(generateProblem(game.level, profile.grade, game.allowedTopics));
-    // arcade also gets new fresh problem if not running
     if (!arcadeRunning) setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.level, profile.grade, game.allowedTopics]);
@@ -1208,7 +1245,7 @@ export default function App() {
     setDailyInput("");
   }
 
-  // --- 7-dages række: Dag 1 = startdagen, så 7 dage frem ---
+  // --- 7-dages række ---
   const dk = meta?.dayKey ?? dayKeyLocal();
   const dailyStreak = meta?.dailyStreak ?? 0;
   const lastDone = meta?.dailyLastDoneDayKey;
@@ -1245,15 +1282,14 @@ export default function App() {
   const done = clamp(meta?.correctToday ?? 0, 0, goal || 0);
   const goalPct = goal > 0 ? Math.round((done / goal) * 100) : 0;
 
-  // ---------------- Arcade Game Logic ----------------
-  // Smooth movement: every frame we move current pos toward target pos
+  // ---------------- Arcade movement (unlimited) ----------------
+  // Smooth lerp animation
   const rafRef = useRef(null);
   useEffect(() => {
     const tick = () => {
       setHorsePos((prev) => {
         const targets = horseTargetRef.current;
-        const next = prev.map((p, i) => p + (targets[i] - p) * 0.14); // lidt mere “tung” / rolig
-        return next;
+        return prev.map((p, i) => p + (targets[i] - p) * 0.14);
       });
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -1261,104 +1297,82 @@ export default function App() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // Arcade countdown
+  // “Physics” tick: move horses even if user does nothing
   useEffect(() => {
     if (!arcadeRunning) return;
 
+    const intervalMs = 220;
     const id = setInterval(() => {
-      setArcadeTimeLeft((t) => t - 1);
-    }, 1000);
+      const dt = intervalMs / 1000;
+      const targets = horseTargetRef.current;
+
+      // Player auto = lidt frem (men langsommere end CPU)
+      const playerAutoPerSec = clamp(0.0038 + (profile.grade - 1) * 0.00012, 0.0038, 0.0048);
+
+      targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) + playerAutoPerSec * dt, 0, 1);
+
+      // CPU horses: hurtigere end player (så de vinder ved passivitet)
+      const speeds = cpuSpeedsPerSecRef.current;
+      for (let i = 0; i < HORSE_COUNT; i++) {
+        if (i === PLAYER_INDEX) continue;
+        targets[i] = clamp((targets[i] ?? 0) + (speeds[i] ?? 0.0075) * dt, 0, 1);
+      }
+
+      // stop when someone finishes
+      let leaderPos = targets[0] ?? 0;
+      let leaderIdx = 0;
+      for (let i = 1; i < targets.length; i++) {
+        const p = targets[i] ?? 0;
+        if (p > leaderPos) {
+          leaderPos = p;
+          leaderIdx = i;
+        }
+      }
+      if (leaderPos >= finishLine) endArcade(leaderIdx);
+    }, intervalMs);
 
     return () => clearInterval(id);
-  }, [arcadeRunning]);
-
-  // Each second while running: everyone moves a bit (slower overall)
-  useEffect(() => {
-    if (!arcadeRunning) return;
-
-    const targets = horseTargetRef.current;
-
-    // Player “galop” (lille konstant løb)
-    const playerAuto = clamp(0.0032 + (profile.grade - 1) * 0.00015, 0.0032, 0.0045);
-
-    // CPU speeds (random per race, but stable)
-    const cpuSpeeds = cpuSpeedsRef.current;
-    for (let i = 0; i < HORSE_COUNT; i++) {
-      if (i === PLAYER_INDEX) {
-        targets[i] = clamp(targets[i] + playerAuto, 0, 1);
-      } else {
-        const sp = cpuSpeeds[i] ?? 0.0048;
-        targets[i] = clamp(targets[i] + sp, 0, 1);
-      }
-    }
-
-    if (arcadeTimeLeft <= 0) {
-      endArcade();
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arcadeTimeLeft, arcadeRunning]);
+  }, [arcadeRunning, profile.grade]);
 
-  function makeHorsePalette() {
-    // 5 tydelige heste-farver (din først)
+  function horsePalette() {
+    // Hestefarver: “samme tone over kroppen”
+    // Player er brun (chestnut) + label
     return [
-      { color: "rgba(56,189,248,0.88)", accent: "rgba(99,102,241,0.88)" }, // din (blå)
-      { color: "rgba(251,191,36,0.86)", accent: "rgba(244,63,94,0.86)" }, // gul/rød
-      { color: "rgba(74,222,128,0.86)", accent: "rgba(16,185,129,0.86)" }, // grøn
-      { color: "rgba(196,181,253,0.86)", accent: "rgba(168,85,247,0.86)" }, // lilla
-      { color: "rgba(248,113,113,0.82)", accent: "rgba(253,186,116,0.82)" }, // rød/orange
+      { color: "rgba(150, 78, 43, 0.92)", accent: "rgba(110, 56, 32, 0.92)", pattern: "solid" }, // brun
+      { color: "rgba(240, 240, 235, 0.92)", accent: "rgba(190, 190, 185, 0.92)", pattern: "solid" }, // hvid/grå
+      { color: "rgba(55, 55, 55, 0.92)", accent: "rgba(30, 30, 30, 0.92)", pattern: "solid" }, // sort
+      { color: "rgba(110, 85, 55, 0.92)", accent: "rgba(80, 60, 40, 0.92)", pattern: "solid" }, // brun (bay)
+      { color: "rgba(235, 235, 235, 0.92)", accent: "rgba(190, 190, 190, 0.92)", pattern: "spotted" }, // plettet
     ];
   }
 
   function startArcade() {
     setArcadeMsg(null);
     setArcadeScore(0);
-    setArcadeTimeLeft(60);
     setArcadeInput("");
     setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
 
-    // reset positions
     horseTargetRef.current = Array.from({ length: HORSE_COUNT }, () => 0.02);
     setHorsePos(Array.from({ length: HORSE_COUNT }, () => 0.02));
 
-    // random-ish cpu speeds (langsommere end før)
-    const cpuSpeeds = Array.from({ length: HORSE_COUNT }, () => 0.0);
+    // CPU speeds per second: lidt random + altid hurtigere end player auto
+    const speeds = Array.from({ length: HORSE_COUNT }, () => 0.0);
     for (let i = 0; i < HORSE_COUNT; i++) {
       if (i === PLAYER_INDEX) continue;
-      // 0.0042..0.0062 (per second) = roligt tempo
-      cpuSpeeds[i] = roundTo(0.0042 + Math.random() * 0.002, 4);
+      // ca 0.0072..0.0102 per sec (ret tydeligt hurtigere end player)
+      speeds[i] = roundTo(0.0072 + Math.random() * 0.003, 4);
     }
-    cpuSpeedsRef.current = cpuSpeeds;
+    cpuSpeedsPerSecRef.current = speeds;
 
     setArcadeRunning(true);
   }
 
-  function endArcade() {
+  function endArcade(leaderIdx) {
     setArcadeRunning(false);
 
-    const targets = horseTargetRef.current;
-    const player = targets[PLAYER_INDEX] ?? 0;
-
-    // find leader
-    let leaderIdx = 0;
-    let leaderPos = targets[0] ?? 0;
-    for (let i = 1; i < targets.length; i++) {
-      const p = targets[i] ?? 0;
-      if (p > leaderPos) {
-        leaderPos = p;
-        leaderIdx = i;
-      }
-    }
-
-    const someoneFinished = leaderPos >= finishLine;
-    const playerWon = someoneFinished ? leaderIdx === PLAYER_INDEX : player >= leaderPos - 1e-6;
-
-    let msg = `Tid! Score: ${arcadeScore}`;
-    if (someoneFinished) {
-      msg = playerWon ? `DU VANDT! 🏁 Score: ${arcadeScore}` : `Du blev slået… Prøv igen! Score: ${arcadeScore}`;
-    } else {
-      msg = playerWon ? `Tid! Du førte 😄 Score: ${arcadeScore}` : `Tid! Score: ${arcadeScore}`;
-    }
-
+    const playerWon = leaderIdx === PLAYER_INDEX;
+    const msg = playerWon ? `DU VANDT! 🏁 Score: ${arcadeScore}` : `Du tabte… Prøv igen! Score: ${arcadeScore}`;
     setArcadeMsg(msg);
 
     setState((s) => {
@@ -1386,47 +1400,46 @@ export default function App() {
     const targets = horseTargetRef.current;
 
     if (!ok) {
-      // Forkert: lille slowdown på din + små boosts til de andre
-      targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) - 0.008, 0, 1);
+      // Forkert: CPU får tydelig fordel
+      targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) - 0.010, 0, 1);
       for (let i = 0; i < HORSE_COUNT; i++) {
         if (i === PLAYER_INDEX) continue;
-        targets[i] = clamp((targets[i] ?? 0) + 0.006, 0, 1);
+        targets[i] = clamp((targets[i] ?? 0) + 0.012, 0, 1);
       }
       setArcadeMsg(`Forkert. Rigtigt svar: ${String(expected)}${arcadeProblem.unit ? ` ${arcadeProblem.unit}` : ""}`);
       arcadeNextProblem();
       return;
     }
 
-    // Rigtigt: boost din hest (langsommere end før)
+    // Rigtigt: boost din hest
     setArcadeScore((s) => s + 1);
 
-    const baseBoost = 0.026; // var 0.04
-    const gradeBoost = clamp((profile.grade - 1) * 0.0016, 0, 0.012);
-    const timeBoost = arcadeTimeLeft > 40 ? 0.004 : arcadeTimeLeft > 20 ? 0.003 : 0.002;
+    const baseBoost = 0.030; // større boost, fordi CPU er hurtigere konstant
+    const gradeBoost = clamp((profile.grade - 1) * 0.0015, 0, 0.012);
+    targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) + baseBoost + gradeBoost, 0, 1);
 
-    targets[PLAYER_INDEX] = clamp((targets[PLAYER_INDEX] ?? 0) + baseBoost + gradeBoost + timeBoost, 0, 1);
-
-    // de andre rykker også en lille smule (så der stadig er pres)
+    // lidt “pres” på de andre også
     for (let i = 0; i < HORSE_COUNT; i++) {
       if (i === PLAYER_INDEX) continue;
-      targets[i] = clamp((targets[i] ?? 0) + 0.0035, 0, 1);
+      targets[i] = clamp((targets[i] ?? 0) + 0.004, 0, 1);
     }
 
     setArcadeMsg("Korrekt! BOOST! ⚡");
     arcadeNextProblem();
 
-    // win immediately if you cross finish line
+    // hvis du passerer målstregen
     if ((targets[PLAYER_INDEX] ?? 0) >= finishLine) {
-      setTimeout(() => endArcade(), 320);
+      setTimeout(() => endArcade(PLAYER_INDEX), 250);
     }
   }
 
   const arcadeHorsesForCanvas = useMemo(() => {
-    const pal = makeHorsePalette();
+    const pal = horsePalette();
     return horsePos.map((p, i) => ({
       pos: p,
       color: pal[i % pal.length].color,
       accent: pal[i % pal.length].accent,
+      pattern: pal[i % pal.length].pattern,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horsePos]);
@@ -1727,25 +1740,21 @@ export default function App() {
           </div>
         )}
 
-        {/* ---------------- ARCADE TAB (Heste-spil) ---------------- */}
+        {/* ---------------- ARCADE TAB ---------------- */}
         {ui.tab === "arcade" && (
           <div className="grid gap-4 lg:grid-cols-3">
             <Panel className="lg:col-span-1">
               <div className="text-lg font-extrabold">Arcade: Heste-løb</div>
               <div className="mt-2 text-sm text-white/75">
-                Super simpelt:
+                Dumt-nemt:
                 <div className="mt-2 space-y-1 text-white/70">
-                  <div>• Svar rigtigt → din hest får boost</div>
-                  <div>• Din hest løber også lidt hele tiden</div>
-                  <div>• 60 sekunder → score så mange rigtige som muligt</div>
+                  <div>• CPU løber hele tiden (og er hurtigere)</div>
+                  <div>• Du vinder ved at svare rigtigt og booste</div>
+                  <div>• Ingen timer — det slutter ved målstregen 🏁</div>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-2">
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Tid</div>
-                  <div className="text-2xl font-black">{arcadeTimeLeft}s</div>
-                </div>
                 <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
                   <div className="text-xs text-white/70">Score</div>
                   <div className="text-2xl font-black">{arcadeScore}</div>
@@ -1764,7 +1773,7 @@ export default function App() {
                   </button>
                 ) : (
                   <button
-                    onClick={endArcade}
+                    onClick={() => setArcadeRunning(false)}
                     className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-white/10 border border-white/10 hover:bg-white/15 active:scale-[0.98] transition"
                   >
                     Stop
@@ -1780,7 +1789,7 @@ export default function App() {
               </div>
 
               <div className="mt-4 text-xs text-white/60">
-                Tip: Vil du gøre arcade sværere? Vælg emner i Opgaver → de bruges også her.
+                Tip: Procenter i arcade er lavet med “runde tal” (så det er hurtigt at regne).
               </div>
             </Panel>
 
@@ -1798,7 +1807,6 @@ export default function App() {
                       setHorsePos(Array.from({ length: HORSE_COUNT }, () => 0.02));
                       setArcadeMsg(null);
                       setArcadeScore(0);
-                      setArcadeTimeLeft(60);
                       setArcadeInput("");
                       setArcadeProblem(generateArcadeProblem(clamp(game.level + 1, 1, 10), profile.grade, game.allowedTopics));
                     }}
@@ -1856,7 +1864,7 @@ export default function App() {
                 </div>
 
                 <div className="mt-3 text-xs text-white/60">
-                  Målstregen er den checkede lodrette streg. Kom først over 🏁
+                  Tip: Hvis du ikke svarer, løber CPU forbi dig 😄
                 </div>
               </div>
             </Panel>
@@ -1945,9 +1953,6 @@ export default function App() {
               <div className="mt-2 text-white/80">
                 Mini games bruger også dit klassetrin + emner. Så når du ændrer klassetrin her, bliver Arcade også justeret.
               </div>
-              <div className="mt-4 text-xs text-white/60">
-                Hvis du vil: næste mini game kan være “Meteor-forsvar” (tal falder ned, du skal svare hurtigt).
-              </div>
             </Panel>
           </div>
         )}
@@ -2011,35 +2016,20 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* DUM TESTLISTE:
+        1) Arcade uden timer:
+           - Start race → du ser ingen “Tid”-boks
+           - Hestene løber indtil én krydser målstregen
+
+        2) CPU hurtigere:
+           - Start race og gør INTET → CPU skal vinde
+           - Svar forkert et par gange → CPU skal vinde hurtigere
+
+        3) Procenter runde tal:
+           - Spil arcade til du får procent-opgaver
+           - Du bør se ting som “30% af 90” eller “pris 100 kr med 20% rabat”
+      */}
     </div>
   );
 }
-
-/* ------------------ DUM TESTLISTE ------------------
-1) Arcade tempo:
-   - Gå til Arcade → Start race
-   - Se at ALLE heste bevæger sig, men langsommere end før
-   - Din hest står ikke stille (den “galoperer” lidt frem)
-
-2) Mere plads:
-   - Banen viser 5 lanes (mere luft imellem)
-   - Kun “DIN HEST” label på din, ingen “DIG” og ingen CPU-navne
-
-3) Flot bane:
-   - Baggrund er grøn (græs)
-   - Midten er brun “dirt track”
-   - Checkeret målstreg ses tydeligt
-
-4) Opgaver i arcade er nemmere:
-   - Start race og prøv 10 opgaver
-   - Du bør få færre “langsomme” opgaver (fx omvendt procent)
-   - Det skal føles boost-venligt (hurtigt at svare)
-
-5) Deploy til Netlify (auto):
-   - Gem filen (CTRL+S)
-   - Kør:
-     git add .
-     git commit -m "arcade update"
-     git push
-   - Netlify → Deploys → ny deploy → opdater dit site
------------------------------------------------------- */
