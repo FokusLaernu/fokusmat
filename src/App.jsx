@@ -1,5 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-
+import Panel from "./ui/components/Panel";
+import Chip from "./ui/components/Chip";
+import SmallBtn from "./ui/components/SmallBtn";
+import TabButton from "./ui/components/TabButton";
+import FirePanel from "./ui/components/FirePanel";
+import ThemeButton from "./ui/components/ThemeButton";
+import { AvatarPreview } from "./ui/components/AvatarPreview";
+import DayDot from "./ui/components/DayDot";
+import MiniGameCard from "./ui/components/MiniGameCard";
+import { loadState, saveState } from "./state/storage";
+import { makeDefaultState } from "./state/defaultState";
+import ProfileTab from "./features/profile/ProfileTab";
+import BadgesTab from "./features/badges/BadgesTab";
+import TrainingTab from "./features/training/TrainingTab";
+import ArcadeTab from "./features/arcade/ArcadeTab";
 /**
  * FOKUSMAT — App.jsx (paste hele filen)
  *
@@ -61,7 +75,7 @@ function addDaysToDayKey(key, deltaDays) {
   return `${yy}-${mm}-${dd}`;
 }
 
-const STORAGE_KEY = "FOKUSMAT_APP_V14_MINIGAMES_METEOR";
+
 
 // --- Theme ---
 const THEMES = [
@@ -645,100 +659,13 @@ function computeUnlocks(game, meta) {
 }
 
 // ---------------- UI bits ----------------
-function Panel({ children, className = "" }) {
-  return (
-    <div className={"rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.35)] p-5 " + className}>
-      {children}
-    </div>
-  );
-}
-function Chip({ children, className = "" }) {
-  return (
-    <span className={"inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-1 text-sm font-semibold shadow-sm text-white/90 " + className}>
-      {children}
-    </span>
-  );
-}
-function SmallBtn({ children, onClick, className = "", disabled = false, title = "" }) {
-  return (
-    <button
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        "rounded-xl border border-white/10 px-3 py-2 bg-white/10 hover:bg-white/15 active:scale-[0.98] transition shadow-sm text-white disabled:opacity-50 disabled:cursor-not-allowed " +
-        className
-      }
-    >
-      {children}
-    </button>
-  );
-}
-function ThemeButton({ theme, active, onClick }) {
-  const grad = `bg-gradient-to-r ${theme.gradFrom} ${theme.gradVia} ${theme.gradTo}`;
-  return (
-    <button
-      onClick={onClick}
-      className={
-        "relative w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition active:scale-[0.99] " +
-        (active ? "border-white/20 bg-white/15" : "border-white/10 bg-white/10 hover:bg-white/15")
-      }
-    >
-      <div className="flex items-center justify-between gap-2 text-white">
-        <div className="font-extrabold">{theme.name}</div>
-        <div className={"h-7 w-16 rounded-xl " + grad} />
-      </div>
-      {active && <div className="mt-1 text-xs text-white/70">Valgt</div>}
-    </button>
-  );
-}
-function AvatarPreview({ name, avatarKey, theme }) {
-  const initial = (name || "?").trim().slice(0, 1).toUpperCase() || "?";
-  const grad = `bg-gradient-to-r ${theme.gradFrom} ${theme.gradVia} ${theme.gradTo}`;
-  return (
-    <div className="flex items-center gap-3">
-      <div className={"h-12 w-12 grid place-items-center text-white font-black shadow-lg " + grad + " " + avatarShapeClass(avatarKey)}>{initial}</div>
-      <div className="text-white">
-        <div className="font-extrabold leading-tight">{name?.trim() ? name.trim() : "Din profil"}</div>
-        <div className="text-xs text-white/70">Avatar + tema</div>
-      </div>
-    </div>
-  );
-}
-function TabButton({ active, label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={
-        "rounded-2xl px-4 py-2 font-extrabold border transition text-white " +
-        (active ? "bg-white/20 border-white/20 shadow-sm" : "bg-white/10 border-white/10 hover:bg-white/15")
-      }
-    >
-      {label}
-    </button>
-  );
-}
-function FirePanel({ children }) {
-  return (
-    <div className="rounded-3xl p-[1px] shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
-      <div className="rounded-3xl bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 p-[1px]">
-        <div className="rounded-3xl bg-slate-950/55 backdrop-blur-xl border border-white/10 p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
 
-function DayDot({ label, filled, isToday }) {
-  const base = "flex flex-col items-center justify-center rounded-2xl border px-2 py-2 min-w-[54px] transition ";
-  const cls = filled ? "bg-gradient-to-b from-amber-500/25 via-orange-600/15 to-rose-600/15 border-white/15" : "bg-white/8 border-white/10";
-  const todayRing = isToday ? " ring-2 ring-amber-300/70 " : "";
-  return (
-    <div className={base + cls + todayRing}>
-      <div className="text-[11px] text-white/75">Dag {label}</div>
-      <div className="text-lg leading-none">{filled ? "🔥" : "•"}</div>
-    </div>
-  );
-}
+
+
+
+
+
+
 
 // ---------------- Mini-games (Arcade menu) ----------------
 const MINI_GAMES = [
@@ -746,30 +673,7 @@ const MINI_GAMES = [
   { key: "horse", name: "Heste-løb", desc: "Boost din hest med hurtige opgaver 🏁", badge: "" },
 ];
 
-function MiniGameCard({ active, title, desc, badge, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={
-        "w-full text-left rounded-3xl border p-4 transition shadow-sm active:scale-[0.99] " +
-        (active ? "bg-white/15 border-white/20" : "bg-white/10 border-white/10 hover:bg-white/15")
-      }
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-extrabold text-white text-lg leading-tight">{title}</div>
-          <div className="mt-1 text-sm text-white/70">{desc}</div>
-        </div>
-        {badge ? (
-          <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-500/15 px-3 py-1 text-xs font-extrabold text-amber-100">
-            {badge}
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-3 text-xs text-white/55">Klik for at åbne</div>
-    </button>
-  );
-}
+
 
 // ---------------- Meteor Math (mini-game) ----------------
 function makeMeteorOptions(correct, diffKey) {
@@ -804,65 +708,140 @@ function getMeteorTuning(diffKey) {
 function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, onBack, bestScore, onBestScore }) {
   const [running, setRunning] = useState(false);
   const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(getMeteorTuning(arcadeDifficultyKey).lives);
+  const [lives, setLives] = useState(3);
   const [msg, setMsg] = useState(null);
 
-  const [problem, setProblem] = useState(() => generateArcadeProblem(grade, allowedTopics, arcadeDifficultyKey));
-  const [input, setInput] = useState("");
+  // progression
+  const [stage, setStage] = useState(1); // stiger over tid/score
 
-  const [meteors, setMeteors] = useState([]); // {id, x(0-1), y(0-1), v, speed, isCorrect}
+  // meteor = én ad gangen
+  // { id, x(0-1), y(0-1), speed, problem, options:[n,n,n], rot, size }
+  const [meteor, setMeteor] = useState(null);
+
+  // laser flash
+  const [laser, setLaser] = useState(null);
+
   const rafRef = useRef(null);
   const lastRef = useRef(0);
-  const spawnAccRef = useRef(0);
 
-  const tuning = useMemo(() => getMeteorTuning(arcadeDifficultyKey), [arcadeDifficultyKey]);
-
-  const resetRound = (newProb) => {
-    const p = newProb ?? generateArcadeProblem(grade, allowedTopics, arcadeDifficultyKey);
-    setProblem(p);
-    setInput("");
-    setMsg(null);
-
-    const options = makeMeteorOptions(p.answer, arcadeDifficultyKey);
-    const arr = [];
-    for (let i = 0; i < tuning.meteorsPerRound; i++) {
-      const v = options[i % options.length];
-      const isCorrect = Number(v) === Number(p.answer);
-      arr.push({
-        id: uid(),
-        x: Math.random() * 0.86 + 0.07,
-        y: -Math.random() * 0.35 - 0.08,
-        v,
-        speed: tuning.speedMin + Math.random() * (tuning.speedMax - tuning.speedMin),
-        isCorrect,
-      });
-    }
-    // sørg for at der ALTID er mindst 1 korrekt meteor i runden
-    if (!arr.some((m) => m.isCorrect)) arr[0].v = p.answer, (arr[0].isCorrect = true);
-
-    setMeteors(arr);
-  };
-
-  // hvis difficulty ændrer sig mens man står i spillet (ikke kører), så regen
-  useEffect(() => {
-    if (!running) {
-      setLives(getMeteorTuning(arcadeDifficultyKey).lives);
-      resetRound();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // ------- TUNING -------
+  // base speed afhænger af difficulty, men bliver progressivt hurtigere via stage
+  const baseTuning = useMemo(() => {
+    if (arcadeDifficultyKey === "let") return { speedMin: 0.14, speedMax: 0.20 };
+    if (arcadeDifficultyKey === "nem") return { speedMin: 0.18, speedMax: 0.26 };
+    return { speedMin: 0.22, speedMax: 0.32 };
   }, [arcadeDifficultyKey]);
+
+  function clampStage(n) {
+    return clamp(n, 1, 999);
+  }
+
+  function stageFromScore(s) {
+    // hver 3 points => sværere + hurtigere
+    return clampStage(1 + Math.floor(s / 3));
+  }
+
+  function getSpeedMultiplier(curStage) {
+    // progressivt hurtigere, men capped så det ikke bliver umuligt for hurtigt
+    const mult = 1 + (curStage - 1) * 0.07;
+    return clamp(mult, 1, 2.35);
+  }
+
+  function make3Options(correct) {
+    // spredning stiger med stage (sværere at gætte)
+    const spreadBase = arcadeDifficultyKey === "let" ? 7 : arcadeDifficultyKey === "nem" ? 10 : 14;
+    const spread = spreadBase + Math.floor(stage * 1.6);
+
+    const opts = new Set([Number(correct)]);
+    let guard = 0;
+
+    while (opts.size < 3 && guard < 240) {
+      guard++;
+      const delta = randInt(-spread, spread);
+      const cand = Number(correct) + delta;
+      if (!Number.isFinite(cand)) continue;
+      if (cand === Number(correct)) continue;
+      if (cand < 0) continue;
+      opts.add(cand);
+    }
+
+    return Array.from(opts).sort(() => Math.random() - 0.5);
+  }
+
+  // “progressivt sværere stykker”
+  // Vi bruger generateArcadeProblem, men “pusher” den ved at:
+  // - give den en fake højere grade (cap 9)
+  // - og ind imellem lave 2-step add/sub selv (mere udfordrende)
+  function generateProgressProblem() {
+    const fakeGrade = clamp((grade ?? 5) + Math.floor(stage / 2), 1, 9);
+
+    // hver 4. stage: giv ofte et 2-step plus/minus (hurtig mental)
+    const doTwoStepAddSub = stage >= 4 && Math.random() < clamp(0.18 + stage * 0.02, 0.18, 0.55);
+
+    if (doTwoStepAddSub) {
+      const big = 35 + stage * 18 + fakeGrade * 8;
+      const a = randInt(Math.floor(big * 0.35), Math.floor(big * 0.85));
+      const b = randInt(Math.floor(big * 0.15), Math.floor(big * 0.65));
+      const c = randInt(Math.floor(big * 0.10), Math.floor(big * 0.55));
+      const form = choice(["a+b-c", "a-b+c", "(a+b)-c"]);
+
+      if (form === "a+b-c") {
+        const ans = a + b - c;
+        return { topicKey: "addsub", title: "3-led", prompt: `Regn ud: ${a} + ${b} − ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer" };
+      }
+      if (form === "a-b+c") {
+        const ans = a - b + c;
+        return { topicKey: "addsub", title: "3-led", prompt: `Regn ud: ${a} − ${b} + ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer" };
+      }
+      const inside = a + b;
+      const ans = inside - c;
+      return { topicKey: "addsub", title: "Parentes", prompt: `Regn ud: (${a} + ${b}) − ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer" };
+    }
+
+    // ellers: brug din eksisterende generator (stadig “pæn”)
+    const p = generateArcadeProblem(fakeGrade, allowedTopics, arcadeDifficultyKey);
+    return p;
+  }
+
+  function spawnMeteor(nextStage = stage) {
+    const p = generateProgressProblem();
+    const options = make3Options(p.answer);
+
+    const speedMult = getSpeedMultiplier(nextStage);
+    const speed =
+      (baseTuning.speedMin + Math.random() * (baseTuning.speedMax - baseTuning.speedMin)) *
+      speedMult;
+
+    const size = clamp(64 + nextStage * 2, 64, 92);
+    const rot = (Math.random() * 18 - 9) * (Math.PI / 180);
+
+    setMeteor({
+      id: uid(),
+      x: Math.random() * 0.70 + 0.15,
+      y: -0.14,
+      speed,
+      problem: p,
+      options,
+      rot,
+      size,
+    });
+
+    setMsg(null);
+  }
 
   function start() {
     setScore(0);
-    setLives(tuning.lives);
+    setLives(3);
     setMsg(null);
+    setStage(1);
     setRunning(true);
-    resetRound();
+    setLaser(null);
+    spawnMeteor(1);
   }
 
-  function endGame(text) {
+  function stop(text) {
     setRunning(false);
-    setMsg(text);
+    setMsg(text ?? null);
 
     if (typeof onBestScore === "function") {
       onBestScore(score);
@@ -873,97 +852,59 @@ function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, 
     setLives((L) => {
       const next = L - 1;
       if (next <= 0) {
-        setTimeout(() => endGame(`Game Over ☄️ Score: ${score}`), 0);
+        setTimeout(() => stop(`Game Over · Score: ${score}`), 0);
         return 0;
       }
       return next;
     });
   }
 
-  function shoot() {
-    if (!running) return;
-    const expected = Number(problem.answer);
-    const got = parseNumber(input);
-
-    let ok = false;
-    if (!Number.isFinite(got)) ok = false;
-    else if (problem.tolerance && problem.tolerance > 0) ok = approxEqual(got, expected, problem.tolerance);
-    else ok = got === expected;
-
-    if (!ok) {
-      setMsg(`Forkert. Rigtigt svar: ${String(expected)}${problem.unit ? ` ${problem.unit}` : ""}`);
-      // straf: fjern en tilfældig meteor (som “spilder skud”) + lille livspres
-      setMeteors((ms) => (ms.length ? ms.slice(0, ms.length - 1) : ms));
-      setInput("");
-      return;
+  // hvis difficulty ændrer sig og vi ikke kører: reset
+  useEffect(() => {
+    if (!running) {
+      setLives(3);
+      setMeteor(null);
+      setMsg(null);
+      setStage(1);
+      setLaser(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arcadeDifficultyKey]);
 
-    // Korrekt: fjern alle “correct” meteors + score + ny runde
-    setScore((s) => s + 1);
-    setMsg("Korrekt! 💥");
-    setInput("");
-    resetRound();
-  }
-
-  // animation loop (falder)
+  // animation loop: meteor falder
   useEffect(() => {
     if (!running) return;
 
     lastRef.current = performance.now();
-    spawnAccRef.current = 0;
 
     const tick = (now) => {
       const dt = Math.min(0.033, (now - lastRef.current) / 1000);
       lastRef.current = now;
 
-      setMeteors((prev) => {
-        let lost = 0;
-        const next = [];
-        for (const m of prev) {
-          const ny = m.y + m.speed * dt;
-          if (ny >= 1.02) {
-            lost++;
-            continue;
-          }
-          next.push({ ...m, y: ny });
-        }
-        if (lost > 0) {
-          // mister 1 liv per “batch” (ikke per meteor) så det føles fair
+      setMeteor((m) => {
+        if (!m) return m;
+        const ny = m.y + m.speed * dt;
+
+        // “Base” ligger over svar-knapperne.
+        // Vi bruger en hit-line lidt over bunden.
+        if (ny >= 0.64) {
           loseLife();
+          setMsg("Base ramt! 💥");
+          setTimeout(() => {
+            if (running) spawnMeteor(stage);
+          }, 0);
+          return null;
         }
-        return next;
+
+        return { ...m, y: ny };
       });
 
-      // respawn meteors løbende så der altid er lidt “kaos”
-      spawnAccRef.current += dt * 1000;
-      if (spawnAccRef.current >= tuning.spawnMs) {
-        spawnAccRef.current = 0;
-
-        setMeteors((prev) => {
-          // hvis for få meteors -> spawn en ny decoy (og nogle gange en korrekt, så man ikke låser sig)
-          const maxOnScreen = clamp(tuning.meteorsPerRound + 2, 6, 12);
-          if (prev.length >= maxOnScreen) return prev;
-
-          const options = makeMeteorOptions(problem.answer, arcadeDifficultyKey);
-          const v = Math.random() < 0.22 ? Number(problem.answer) : Number(choice(options));
-          const isCorrect = Number(v) === Number(problem.answer);
-
-          // hvis der *ingen* korrekt er, force korrekt
-          const hasCorrect = prev.some((m) => m.isCorrect);
-          const finalIsCorrect = hasCorrect ? isCorrect : true;
-          const finalV = hasCorrect ? v : Number(problem.answer);
-
-          const spawned = {
-            id: uid(),
-            x: Math.random() * 0.86 + 0.07,
-            y: -0.12,
-            v: finalV,
-            speed: tuning.speedMin + Math.random() * (tuning.speedMax - tuning.speedMin),
-            isCorrect: finalIsCorrect,
-          };
-          return [...prev, spawned];
-        });
-      }
+      // sluk laser efter kort flash
+      setLaser((L) => {
+        if (!L) return null;
+        if (Date.now() > L.untilTs) return null;
+        return L;
+      });
 
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -971,9 +912,100 @@ function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, tuning.spawnMs, tuning.speedMin, tuning.speedMax, arcadeDifficultyKey, problem.answer]);
+  }, [running, baseTuning.speedMin, baseTuning.speedMax, stage]);
 
-  const arenaRef = useRef(null);
+  function fireLaserToMeteor(m) {
+    // base center (ca)
+    const x1 = 0.50;
+    const y1 = 0.74;
+
+    const x2 = m.x;
+    const y2 = m.y;
+
+    setLaser({
+      x1,
+      y1,
+      x2,
+      y2,
+      untilTs: Date.now() + 170,
+    });
+  }
+
+  function clickAnswer(value) {
+    if (!running) return;
+    if (!meteor) return;
+
+    const expected = Number(meteor.problem.answer);
+    const got = Number(value);
+
+    const ok = got === expected;
+
+    if (!ok) {
+      setMsg("Forkert 😅");
+      return;
+    }
+
+    // korrekt: laser + score + stage progression + ny meteor
+    fireLaserToMeteor(meteor);
+
+    setScore((s) => {
+      const nextScore = s + 1;
+      const nextStage = stageFromScore(nextScore);
+      setStage(nextStage);
+      return nextScore;
+    });
+
+    setMsg("Korrekt! ⚡");
+
+    setMeteor(null);
+    setTimeout(() => {
+      if (running) spawnMeteor(stageFromScore(score + 1));
+    }, 190);
+  }
+
+  const arenaH = 520; // større skærm
+
+  // meteor visuals: “meteor-agtig” uden emoji
+  function MeteorVisual({ size = 72, rot = 0 }) {
+    const s = size;
+    return (
+      <div
+        className="relative"
+        style={{
+          width: s,
+          height: s,
+          transform: `rotate(${rot}rad)`,
+        }}
+      >
+        {/* tail */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-y-1/2"
+          style={{
+            width: s * 1.2,
+            height: s * 0.55,
+            transform: "translateX(-92%)",
+            filter: "blur(0.2px)",
+          }}
+        >
+          <div className="h-full w-full rounded-[999px] bg-gradient-to-r from-amber-300/0 via-amber-300/35 to-amber-300/70" />
+        </div>
+
+        {/* glow */}
+        <div className="absolute inset-0 rounded-full bg-amber-300/10 blur-xl" />
+
+        {/* rock */}
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200/35 via-slate-100/15 to-slate-950/35 border border-white/15 shadow-[0_20px_80px_rgba(0,0,0,0.45)]" />
+
+        {/* craters */}
+        <div className="absolute left-[18%] top-[22%] h-[18%] w-[18%] rounded-full bg-black/20 border border-white/10" />
+        <div className="absolute left-[55%] top-[30%] h-[14%] w-[14%] rounded-full bg-black/18 border border-white/10" />
+        <div className="absolute left-[38%] top-[58%] h-[16%] w-[16%] rounded-full bg-black/18 border border-white/10" />
+
+        {/* highlight */}
+        <div className="absolute left-[18%] top-[18%] h-[35%] w-[35%] rounded-full bg-white/12 blur-sm" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -983,24 +1015,27 @@ function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, 
           <SmallBtn onClick={onBack}>Til menu</SmallBtn>
         </div>
 
-        <div className="mt-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-          <div className="text-xs text-white/70">Arcade sværhedsgrad</div>
-          <div className="font-extrabold mt-1">{ARCADE_DIFFICULTIES.find((d) => d.key === arcadeDifficultyKey)?.name}</div>
-          <div className="text-xs text-white/60 mt-1">{ARCADE_DIFFICULTIES.find((d) => d.key === arcadeDifficultyKey)?.desc}</div>
-        </div>
-
         <div className="mt-3 grid gap-2">
           <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
             <div className="text-xs text-white/70">Score</div>
             <div className="text-2xl font-black">{score}</div>
           </div>
+
           <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
             <div className="text-xs text-white/70">Liv</div>
             <div className="text-2xl font-black">{Array.from({ length: Math.max(0, lives) }, () => "❤️").join(" ") || "—"}</div>
+            <div className="text-[11px] text-white/55 mt-1">Du har altid kun 3 liv.</div>
           </div>
+
           <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
             <div className="text-xs text-white/70">Bedste score</div>
             <div className="text-2xl font-black">{bestScore ?? 0}</div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
+            <div className="text-xs text-white/70">Progression</div>
+            <div className="font-extrabold">Stage {stage}</div>
+            <div className="text-[11px] text-white/55 mt-1">Opgaver + faldhastighed stiger løbende.</div>
           </div>
 
           {!running ? (
@@ -1008,11 +1043,11 @@ function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, 
               onClick={start}
               className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-gradient-to-r from-sky-500 via-cyan-500 to-indigo-600 hover:opacity-95 active:scale-[0.98] transition"
             >
-              Start ☄️
+              Start
             </button>
           ) : (
             <button
-              onClick={() => endGame(`Stoppet. Score: ${score}`)}
+              onClick={() => stop(`Stoppet · Score: ${score}`)}
               className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-white/10 border border-white/10 hover:bg-white/15 active:scale-[0.98] transition"
             >
               Stop
@@ -1028,7 +1063,7 @@ function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, 
         </div>
 
         <div className="mt-4 text-xs text-white/60">
-          Tip: Svar og tryk <b>Enter</b> for at “skyde”.
+          Klik korrekt svar for at skyde meteoren før den rammer basen.
         </div>
       </Panel>
 
@@ -1039,91 +1074,118 @@ function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, 
             <Chip>Klassetrin {grade}.</Chip>
             <Chip>Arcade: {ARCADE_DIFFICULTIES.find((d) => d.key === arcadeDifficultyKey)?.name}</Chip>
           </div>
-          <div className="flex gap-2">
-            <SmallBtn
-              onClick={() => {
-                if (!running) resetRound();
-              }}
-              disabled={running}
-              title={running ? "Stop først, før du resetter" : "Ny runde"}
-            >
-              Ny runde
-            </SmallBtn>
-          </div>
         </div>
 
         {/* Arena */}
         <div
-          ref={arenaRef}
           className="mt-4 relative rounded-3xl border border-white/10 bg-gradient-to-b from-slate-950/25 via-slate-950/35 to-black/35 overflow-hidden"
-          style={{ height: 380 }}
+          style={{ height: arenaH }}
         >
-          {/* Top HUD */}
-          <div className="absolute left-3 right-3 top-3 z-10">
-            <div className="rounded-2xl border border-white/10 bg-slate-950/45 backdrop-blur px-4 py-3 shadow-sm">
-              <div className="text-xs text-white/70">Opgave</div>
-              <div className="font-extrabold text-white">{problem.prompt}</div>
-              <div className="text-[11px] text-white/55 mt-1">Skyd korrekt meteor ved at skrive svaret.</div>
+          {/* Laser */}
+          {laser && (
+            <div className="absolute inset-0 pointer-events-none">
+              {(() => {
+                const x1 = laser.x1 * 100;
+                const y1 = laser.y1 * 100;
+                const x2 = laser.x2 * 100;
+                const y2 = laser.y2 * 100;
+
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+                return (
+                  <div
+                    className="absolute"
+                    style={{
+                      left: `${x1}%`,
+                      top: `${y1}%`,
+                      width: `${len}%`,
+                      height: 5,
+                      transformOrigin: "0 50%",
+                      transform: `rotate(${angle}deg)`,
+                    }}
+                  >
+                    <div className="h-full w-full rounded-full bg-white/90 shadow-[0_0_22px_rgba(255,255,255,0.55)]" />
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Meteor */}
+          {meteor && (
+            <div
+              className="absolute"
+              style={{
+                left: `${meteor.x * 100}%`,
+                top: `${meteor.y * 100}%`,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <div className="relative grid place-items-center">
+                <MeteorVisual size={meteor.size} rot={meteor.rot} />
+                <div className="absolute -bottom-7 left-1/2 -translate-x-1/2">
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur px-4 py-2 shadow-lg">
+                    <div className="font-black text-white text-base text-center whitespace-nowrap">
+                      {meteor.problem.prompt.replace("Regn ud: ", "")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Base (synlig, over svar-knapper) */}
+          <div className="absolute left-1/2 bottom-[132px] -translate-x-1/2 z-10">
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-slate-950/60 via-slate-900/45 to-slate-950/60 backdrop-blur px-6 py-4 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl border border-white/10 bg-white/10 grid place-items-center shadow-sm">
+                  {/* lille “kanon” */}
+                  <div className="h-3 w-6 rounded-full bg-white/70" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-white leading-tight">Base</div>
+                  <div className="text-[11px] text-white/60 -mt-0.5">Hvis meteoren rammer her, mister du 1 liv.</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Meteors */}
-          {meteors.map((m) => {
-            const left = `${m.x * 100}%`;
-            const top = `${m.y * 100}%`;
-            return (
-              <div key={m.id} className="absolute" style={{ left, top, transform: "translate(-50%, -50%)" }}>
-                <div className="rounded-full border border-white/10 bg-white/10 backdrop-blur px-4 py-2 shadow-lg">
-                  <div className="font-black text-white text-lg leading-none">{String(m.v)}</div>
-                  <div className="text-[10px] text-white/55 text-center -mt-0.5">☄️</div>
-                </div>
+          {/* Answer buttons */}
+          <div className="absolute left-0 right-0 bottom-0 p-4 z-20">
+            <div className="rounded-3xl border border-white/10 bg-slate-950/55 backdrop-blur px-4 py-4 shadow-sm">
+              <div className="text-xs text-white/70 mb-2">Vælg korrekt svar:</div>
+
+              <div className="grid gap-2 md:grid-cols-3">
+                {(meteor?.options ?? [0, 0, 0]).map((v, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => clickAnswer(v)}
+                    disabled={!running || !meteor}
+                    className="rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 hover:opacity-95 active:scale-[0.98] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {String(v)}
+                  </button>
+                ))}
               </div>
-            );
-          })}
 
-          {/* Bottom input */}
-          <div className="absolute left-0 right-0 bottom-0 p-4 z-10">
-            <div className="rounded-3xl border border-white/10 bg-slate-950/45 backdrop-blur px-4 py-4 shadow-sm">
-              <div className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
-                <div>
-                  <label className="text-sm text-white/80">Dit svar {problem.unit ? `(${problem.unit})` : ""}</label>
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && shoot()}
-                    placeholder={running ? "Skriv tal og tryk Enter" : "Start først"}
-                    disabled={!running}
-                    className={"mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 text-lg bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 text-white disabled:opacity-60 " + themeRing}
-                  />
-                  <div className="mt-2 flex gap-2 flex-wrap">
-                    <SmallBtn onClick={() => setInput("")} disabled={!running}>
-                      Ryd
-                    </SmallBtn>
-                    <SmallBtn onClick={() => setMsg(null)} disabled={!running}>
-                      Skjul status
-                    </SmallBtn>
-                  </div>
-                </div>
-
-                <button
-                  onClick={shoot}
-                  disabled={!running}
-                  className="rounded-2xl px-6 py-3 text-lg font-extrabold text-white shadow-lg bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 hover:opacity-95 hover:scale-[1.01] active:scale-[0.98] transition disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  SKYD 💥
-                </button>
+              <div className="mt-2 text-[11px] text-white/55">
+                {running ? "Klik hurtigt — meteorer bliver hurtigere jo længere du kommer." : "Tryk Start for at begynde."}
               </div>
             </div>
           </div>
 
           {/* Decorative stars */}
-          <div className="pointer-events-none absolute inset-0 opacity-35">
-            <div className="absolute left-[12%] top-[18%]">✦</div>
-            <div className="absolute left-[70%] top-[28%]">✦</div>
-            <div className="absolute left-[35%] top-[45%]">✦</div>
-            <div className="absolute left-[82%] top-[58%]">✦</div>
-            <div className="absolute left-[18%] top-[64%]">✦</div>
-            <div className="absolute left-[52%] top-[72%]">✦</div>
+          <div className="pointer-events-none absolute inset-0 opacity-30">
+            <div className="absolute left-[12%] top-[12%]">✦</div>
+            <div className="absolute left-[70%] top-[20%]">✦</div>
+            <div className="absolute left-[35%] top-[38%]">✦</div>
+            <div className="absolute left-[82%] top-[50%]">✦</div>
+            <div className="absolute left-[18%] top-[58%]">✦</div>
+            <div className="absolute left-[52%] top-[70%]">✦</div>
+            <div className="absolute left-[26%] top-[78%]">✦</div>
           </div>
         </div>
       </Panel>
@@ -1313,33 +1375,7 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
 
 // ---------------- App ----------------
 export default function App() {
-  const [state, setState] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-
-    const dk = dayKeyLocal();
-    return {
-      profile: { name: "", grade: 5, dailyGoal: 10, themeKey: "navy", avatarKey: "dot", arcadeDifficulty: "let" },
-      game: { level: 1, xp: 0, points: 0, streak: 0, correct: 0, wrong: 0, allowedTopics: [], achievements: [] },
-      meta: {
-        dayKey: dk,
-        correctToday: 0,
-        daily: null,
-        dailyStreak: 0,
-        dailyLastDoneDayKey: null,
-        maxStreak: 0,
-        dailyCountedInGoalDayKey: null,
-      },
-      arcade: {
-        bestScore: 0,
-        lastScore: 0,
-        meteorBest: 0,
-      },
-      ui: { tab: "tasks", arcadeGameKey: null }, // null => viser menu
-    };
-  });
+const [state, setState] = useState(() => loadState() ?? makeDefaultState());
 
   // Backwards compatibility (hvis localStorage ikke har felter endnu)
   useEffect(() => {
@@ -1412,11 +1448,9 @@ export default function App() {
   const [fadeProblem, setFadeProblem] = useState(false);
   const [pulseBar, setPulseBar] = useState(false);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
-  }, [state]);
+useEffect(() => {
+  saveState(state);
+}, [state]);
 
   function showToast(text) {
     setToast(text);
@@ -1980,572 +2014,102 @@ export default function App() {
         </div>
 
         {/* ---------------- OPGAVER TAB ---------------- */}
-        {ui.tab === "tasks" && (
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* LEFT */}
-            <div className="lg:col-span-1 grid gap-4">
-              <FirePanel>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-white/85">Daily Challenge</div>
-                    <div className="text-2xl font-black">🔥 Klar den hver dag</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-white/75">Streak</div>
-                    <div className="font-black text-white text-xl">{dailyStreak} 🔥</div>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="text-xs text-white/75 mb-2">7 dage (Dag 1 starter når streaken starter)</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {weekKeysForward.map((k, idx) => {
-                      const isToday = k === dk;
-                      const filled = isKeyInStreak(k);
-                      return <DayDot key={k} label={String(idx + 1)} filled={filled} isToday={isToday} />;
-                    })}
-                  </div>
-                  <div className="mt-2 text-[11px] text-white/60">
-                    {daily?.done ? "✅ Daily klaret i dag." : "➡️ Klar daily for at fylde Dag " + (dailyStreak > 0 ? String(dailyStreak + 1) : "1")}
-                  </div>
-                </div>
-
-                {!dailyProblem ? (
-                  <div className="mt-3 text-white/80">Laver dagens opgave…</div>
-                ) : daily?.done ? (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/10 p-4">
-                    <div className="font-extrabold">Klaret i dag!</div>
-                    <div className="text-sm text-white/70">Kom igen i morgen for at holde streaken i live 🔥</div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <div className="text-xs text-white/70">Bonus-opgave (lidt hårdere)</div>
-                      <div className="font-extrabold">Level {dailyProblem.level}</div>
-                      <div className="mt-2 text-white">{dailyProblem.prompt}</div>
-                    </div>
-
-                    <div className="mt-3">
-                      <label className="text-sm text-white/80">Dit svar {dailyProblem.unit ? `(${dailyProblem.unit})` : ""}</label>
-                      <input
-                        value={dailyInput}
-                        onChange={(e) => setDailyInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && checkDaily()}
-                        placeholder="Skriv et tal"
-                        className="mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 text-lg bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 text-white"
-                      />
-                      <button
-                        onClick={checkDaily}
-                        className="mt-3 w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 hover:opacity-95 active:scale-[0.98] transition"
-                      >
-                        Tjek Daily 🔥
-                      </button>
-
-                      {dailyFeedback && (
-                        <div className={"mt-3 rounded-2xl p-4 border shadow-sm fadeUp " + (dailyFeedback.type === "ok" ? "bg-emerald-500/10 border-emerald-300/20" : "bg-rose-500/10 border-rose-300/20")}>
-                          <div className="font-extrabold">{dailyFeedback.type === "ok" ? "Yes!" : "Næsten"}</div>
-                          <div className="text-white/80">{dailyFeedback.msg}</div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </FirePanel>
-
-              <Panel>
-                <div className="text-lg font-extrabold text-white">Overblik</div>
-                <div className="mt-3 grid gap-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                    <div className="text-xs text-white/70">Streak</div>
-                    <div className="text-2xl font-black">{game.streak}</div>
-                    <div className="text-xs text-white/60">Nulstilles ved forkert svar</div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                    <div className="text-xs text-white/70">Højeste streak</div>
-                    <div className="text-2xl font-black">{maxStreak}</div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                    <div className="text-xs text-white/70">Emner</div>
-                    <div className="font-extrabold">{chosenTopicsText}</div>
-                  </div>
-
-                  <SmallBtn onClick={() => setTab("arcade")} className="w-full">
-                    Prøv Arcade (mini-games)
-                  </SmallBtn>
-                </div>
-              </Panel>
-            </div>
-
-            {/* RIGHT */}
-            <Panel className="lg:col-span-2">
-              <div className="flex flex-wrap items-center gap-2 justify-between">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Chip>Træningsopgave</Chip>
-                  <Chip>Level {problem.level}</Chip>
-                  <Chip>Klassetrin {profile.grade}.</Chip>
-                </div>
-                <div className="flex gap-2">
-                  <SmallBtn onClick={nextProblem} title="Spring til ny opgave">
-                    Ny opgave
-                  </SmallBtn>
-                </div>
-              </div>
-
-              <div className={"mt-4 " + (shake ? "shake" : "") + " " + (fadeProblem ? "fadeSwap" : "")}>
-                <div className="text-lg font-extrabold text-white">Opgave</div>
-                <p className="mt-2 text-white/85 leading-relaxed">{problem.prompt}</p>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] items-end">
-                <div>
-                  <label className="text-sm text-white/80">Dit svar {problem.unit ? `(${problem.unit})` : ""}</label>
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && check()}
-                    placeholder="Skriv et tal (fx 12,5)"
-                    className={"mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 text-lg bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 text-white " + theme.ring}
-                  />
-
-                  <div className="mt-2 flex gap-2 flex-wrap">
-                    <SmallBtn onClick={() => setShowHint((v) => !v)}>{showHint ? "Skjul hint" : "Vis hint"}</SmallBtn>
-                    <SmallBtn onClick={() => setInput("")}>Ryd</SmallBtn>
-                  </div>
-
-                  {showHint && (
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-white/10 p-4 fadeUp">
-                      <div className="text-sm font-extrabold text-white">Hint</div>
-                      <div className="text-white/80">{problem.hint}</div>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={check}
-                  className={
-                    "rounded-2xl px-6 py-3 text-lg font-extrabold text-white shadow-lg " +
-                    "bg-gradient-to-r from-sky-500 via-cyan-500 to-indigo-600 " +
-                    "hover:opacity-95 hover:scale-[1.01] active:scale-[0.98] transition " +
-                    (pop ? "pop" : "")
-                  }
-                >
-                  Tjek svar
-                </button>
-              </div>
-
-              <details className="mt-4">
-                <summary className="cursor-pointer select-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 font-extrabold hover:bg-white/15 transition text-white">
-                  Emner (skift her)
-                </summary>
-
-                <div className="mt-3 space-y-2">
-                  <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 hover:bg-white/15 transition text-white">
-                    <input type="checkbox" checked={(game.allowedTopics?.length || 0) === 0} onChange={() => setAllowedTopics([])} />
-                    <span className="font-semibold">Blandet (alle emner)</span>
-                  </label>
-
-                  {TOPICS.map((t) => (
-                    <label key={t.key} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 hover:bg-white/15 transition text-white">
-                      <input type="checkbox" checked={(game.allowedTopics || []).includes(t.key)} onChange={() => toggleTopic(t.key)} />
-                      <span className="font-semibold">{t.label}</span>
-                    </label>
-                  ))}
-                  <div className="text-xs text-white/60">Tip: Vælger du emner, får du kun dem. “Blandet” = alt.</div>
-                </div>
-              </details>
-
-              {feedback && (
-                <div className={"mt-4 rounded-3xl p-5 border shadow-sm fadeUp " + (feedback.type === "ok" ? "bg-emerald-500/10 border-emerald-300/20" : "bg-rose-500/10 border-rose-300/20")}>
-                  <div className="font-extrabold text-lg">{feedback.type === "ok" ? "Godt!" : "Prøv igen"}</div>
-                  <div className="mt-1 text-white/85">{feedback.msg}</div>
-
-                  {feedback.type === "bad" && problem.steps?.length > 0 && (
-                    <div className="mt-3">
-                      <SmallBtn onClick={() => setShowSteps((v) => !v)}>{showSteps ? "Skjul forklaring" : "Vis forklaring"}</SmallBtn>
-                      {showSteps && (
-                        <ol className="mt-3 list-decimal pl-5 space-y-1 text-white/85">
-                          {problem.steps.map((s, i) => (
-                            <li key={i}>{s}</li>
-                          ))}
-                        </ol>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Panel>
-          </div>
-        )}
-
+     {ui.tab === "tasks" && (
+  <TrainingTab
+    theme={theme}
+    TOPICS={TOPICS}
+    profile={profile}
+    game={game}
+    meta={meta}
+    problem={problem}
+    input={input}
+    setInput={setInput}
+    feedback={feedback}
+    showHint={showHint}
+    setShowHint={setShowHint}
+    showSteps={showSteps}
+    setShowSteps={setShowSteps}
+    shake={shake}
+    fadeProblem={fadeProblem}
+    pop={pop}
+    check={check}
+    nextProblem={nextProblem}
+    toggleTopic={toggleTopic}
+    setAllowedTopics={setAllowedTopics}
+    setTab={setTab}
+    daily={daily}
+    dailyProblem={dailyProblem}
+    dailyInput={dailyInput}
+    setDailyInput={setDailyInput}
+    dailyFeedback={dailyFeedback}
+    checkDaily={checkDaily}
+    dk={dk}
+    dailyStreak={dailyStreak}
+    weekKeysForward={weekKeysForward}
+    isKeyInStreak={isKeyInStreak}
+    maxStreak={maxStreak}
+    chosenTopicsText={chosenTopicsText}
+    goal={goal}
+  />
+)}
         {/* ---------------- ARCADE TAB ---------------- */}
-        {ui.tab === "arcade" && (
-          <div className="grid gap-4">
-            {/* Global Arcade settings */}
-            <Panel>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Chip>Arcade</Chip>
-                  <Chip>Emner: {chosenTopicsText}</Chip>
-                  <Chip>Klassetrin {profile.grade}.</Chip>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Sværhedsgrad (Arcade)</div>
-                  <select
-                    value={profile.arcadeDifficulty || "let"}
-                    onChange={(e) => setProfile({ arcadeDifficulty: e.target.value })}
-                    className="mt-2 w-full rounded-2xl border border-white/10 px-4 py-2 bg-slate-950/40 shadow-sm text-white"
-                  >
-                    {ARCADE_DIFFICULTIES.map((d) => (
-                      <option key={d.key} value={d.key}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-2 text-xs text-white/60">{ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.desc}</div>
-                </div>
-              </div>
-              <div className="mt-2 text-[11px] text-white/55">
-                Tip: “Let” er perfekt til flow. “Svær” er stadig hurtig, men kræver fokus.
-              </div>
-            </Panel>
-
-            {/* Menu eller game */}
-            {ui.arcadeGameKey == null && (
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Panel className="lg:col-span-1">
-                  <div className="text-lg font-extrabold">Mini-games</div>
-                  <div className="mt-2 text-sm text-white/70">Klik et spil for at starte.</div>
-                  <div className="mt-4 grid gap-2">
-                    {MINI_GAMES.map((g) => (
-                      <MiniGameCard
-                        key={g.key}
-                        active={false}
-                        title={g.name}
-                        desc={g.desc}
-                        badge={g.badge}
-                        onClick={() => setArcadeGameKey(g.key)}
-                      />
-                    ))}
-                  </div>
-                </Panel>
-
-                <Panel className="lg:col-span-2">
-                  <div className="text-lg font-extrabold">Arcade stats</div>
-                  <div className="mt-3 grid gap-2 md:grid-cols-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                      <div className="text-xs text-white/70">Heste-løb best</div>
-                      <div className="text-2xl font-black">{arcade?.bestScore ?? 0}</div>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                      <div className="text-xs text-white/70">Meteor Math best</div>
-                      <div className="text-2xl font-black">{arcade?.meteorBest ?? 0}</div>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                      <div className="text-xs text-white/70">Sidste Horse score</div>
-                      <div className="text-2xl font-black">{arcade?.lastScore ?? 0}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-3xl border border-white/10 bg-white/10 p-5">
-                    <div className="font-extrabold">Hvad er nyt?</div>
-                    <div className="mt-2 text-white/80">
-                      Du har nu en mini-game menu i Arcade. Meteor Math er første spil — vi kan bygge flere bagefter.
-                    </div>
-                    <div className="mt-2 text-xs text-white/60">Hvis du vil: næste skridt kan være power-ups, combo meter, eller “boss meteor”.</div>
-                  </div>
-                </Panel>
-              </div>
-            )}
-
-            {ui.arcadeGameKey === "meteor" && (
-              <MeteorMathGame
-                grade={profile.grade}
-                allowedTopics={game.allowedTopics}
-                arcadeDifficultyKey={profile.arcadeDifficulty || "let"}
-                themeRing={theme.ring}
-                bestScore={arcade?.meteorBest ?? 0}
-                onBestScore={(newScore) => {
-                  setState((s) => ({ ...s, arcade: { ...s.arcade, meteorBest: Math.max(s.arcade?.meteorBest ?? 0, newScore) } }));
-                }}
-                onBack={() => setArcadeGameKey(null)}
-              />
-            )}
-
-            {ui.arcadeGameKey === "horse" && (
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Panel className="lg:col-span-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-lg font-extrabold">Heste-løb</div>
-                    <SmallBtn onClick={() => setArcadeGameKey(null)}>Til menu</SmallBtn>
-                  </div>
-
-                  <div className="mt-3 grid gap-2">
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                      <div className="text-xs text-white/70">Score</div>
-                      <div className="text-2xl font-black">{arcadeScore}</div>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                      <div className="text-xs text-white/70">Bedste score</div>
-                      <div className="text-2xl font-black">{arcade?.bestScore ?? 0}</div>
-                    </div>
-
-                    {!arcadeRunning ? (
-                      <button
-                        onClick={startArcade}
-                        className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-gradient-to-r from-sky-500 via-cyan-500 to-indigo-600 hover:opacity-95 active:scale-[0.98] transition"
-                      >
-                        Start race
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setArcadeRunning(false)}
-                        className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-white/10 border border-white/10 hover:bg-white/15 active:scale-[0.98] transition"
-                      >
-                        Stop
-                      </button>
-                    )}
-
-                    {arcadeMsg && (
-                      <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white/85 fadeUp">
-                        <div className="font-extrabold">Status</div>
-                        <div className="text-sm text-white/75 mt-1">{arcadeMsg}</div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 text-xs text-white/60">
-                    Division i Horse-Arcade er altid “pæn” (heltal). Ingen 342÷19 😄
-                  </div>
-                </Panel>
-
-                <Panel className="lg:col-span-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <Chip>Race</Chip>
-                      <Chip>Klassetrin {profile.grade}.</Chip>
-                      <Chip>Arcade: {ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.name}</Chip>
-                      <Chip>Emner: {chosenTopicsText}</Chip>
-                    </div>
-                    <div className="flex gap-2">
-                      <SmallBtn
-                        onClick={() => {
-                          horseTargetRef.current = Array.from({ length: HORSE_COUNT }, () => 0.02);
-                          setHorsePos(Array.from({ length: HORSE_COUNT }, () => 0.02));
-                          setArcadeMsg(null);
-                          setArcadeScore(0);
-                          setArcadeInput("");
-                          setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
-                        }}
-                        disabled={arcadeRunning}
-                        title={arcadeRunning ? "Stop først, før du resetter" : "Reset"}
-                      >
-                        Reset
-                      </SmallBtn>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <ArcadeHorseRaceCanvas horses={arcadeHorsesForCanvas} playerIndex={PLAYER_INDEX} finishLine={finishLine} />
-                  </div>
-
-                  <div className="mt-4 rounded-3xl border border-white/10 bg-white/10 p-5">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div>
-                        <div className="text-xs text-white/70">Opgave (hurtig)</div>
-                        <div className="font-extrabold text-lg">{arcadeProblem.prompt}</div>
-                      </div>
-                      <div className="text-xs text-white/60">{arcadeRunning ? "Skriv svar → Enter" : "Tryk Start race"}</div>
-                    </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] items-end">
-                      <div>
-                        <label className="text-sm text-white/80">Dit svar {arcadeProblem.unit ? `(${arcadeProblem.unit})` : ""}</label>
-                        <input
-                          value={arcadeInput}
-                          onChange={(e) => setArcadeInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && checkArcade()}
-                          placeholder={arcadeRunning ? "Skriv tal og tryk Enter" : "Start race først"}
-                          disabled={!arcadeRunning}
-                          className={"mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 text-lg bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 text-white disabled:opacity-60 " + theme.ring}
-                        />
-                        <div className="mt-2 flex gap-2 flex-wrap">
-                          <SmallBtn onClick={() => setArcadeInput("")} disabled={!arcadeRunning}>
-                            Ryd
-                          </SmallBtn>
-                          <SmallBtn onClick={() => setArcadeMsg(null)} disabled={!arcadeRunning}>
-                            Skjul status
-                          </SmallBtn>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={checkArcade}
-                        disabled={!arcadeRunning}
-                        className="rounded-2xl px-6 py-3 text-lg font-extrabold text-white shadow-lg bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 hover:opacity-95 hover:scale-[1.01] active:scale-[0.98] transition disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        BOOST!
-                      </button>
-                    </div>
-                  </div>
-                </Panel>
-              </div>
-            )}
-          </div>
-        )}
+       {ui.tab === "arcade" && (
+  <ArcadeTab
+    ui={ui}
+    profile={profile}
+    game={game}
+    arcade={arcade}
+    chosenTopicsText={chosenTopicsText}
+    ARCADE_DIFFICULTIES={ARCADE_DIFFICULTIES}
+    MINI_GAMES={MINI_GAMES}
+    themeRing={theme.ring}
+    setProfile={setProfile}
+    setArcadeGameKey={setArcadeGameKey}
+    MeteorMathGameComp={MeteorMathGame}
+    onMeteorBestScore={(newScore) => {
+      setState((s) => ({
+        ...s,
+        arcade: { ...s.arcade, meteorBest: Math.max(s.arcade?.meteorBest ?? 0, newScore) },
+      }));
+    }}
+    arcadeScore={arcadeScore}
+    arcadeRunning={arcadeRunning}
+    arcadeMsg={arcadeMsg}
+    startArcade={startArcade}
+    stopArcade={() => setArcadeRunning(false)}
+    resetHorseRace={() => {
+      horseTargetRef.current = Array.from({ length: HORSE_COUNT }, () => 0.02);
+      setHorsePos(Array.from({ length: HORSE_COUNT }, () => 0.02));
+      setArcadeMsg(null);
+      setArcadeScore(0);
+      setArcadeInput("");
+      setArcadeProblem(generateArcadeProblem(profile.grade, game.allowedTopics, profile.arcadeDifficulty || "let"));
+    }}
+    arcadeProblem={arcadeProblem}
+    arcadeInput={arcadeInput}
+    setArcadeInput={setArcadeInput}
+    checkArcade={checkArcade}
+    ArcadeHorseRaceCanvasComp={ArcadeHorseRaceCanvas}
+    arcadeHorsesForCanvas={arcadeHorsesForCanvas}
+    PLAYER_INDEX={PLAYER_INDEX}
+    finishLine={finishLine}
+  />
+)}
 
         {/* ---------------- PROFIL TAB ---------------- */}
-        {ui.tab === "profile" && (
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Panel className="lg:col-span-1">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-lg font-extrabold text-white">Profil</div>
-                <Chip className="text-xs">Gemmes</Chip>
-              </div>
+   {ui.tab === "profile" && (
+  <ProfileTab
+    state={state}
+    setState={setState}
+    theme={theme}
+    avatarShapeClass={avatarShapeClass}
+  />
+)}
 
-              <div className="mt-3">
-                <AvatarPreview name={profile.name} avatarKey={profile.avatarKey} theme={theme} />
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <div>
-                  <label className="text-sm text-white/80">Navn</label>
-                  <input
-                    value={profile.name}
-                    onChange={(e) => setProfile({ name: e.target.value })}
-                    placeholder="Skriv dit navn"
-                    className={"mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 text-white " + theme.ring}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm text-white/80">Klassetrin</label>
-                    <select
-                      value={profile.grade}
-                      onChange={(e) => setProfile({ grade: Number(e.target.value) })}
-                      className="mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 bg-slate-950/40 shadow-sm text-white"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((g) => (
-                        <option key={g} value={g}>
-                          {g}.
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-white/80">Dagens mål</label>
-                    <select
-                      value={profile.dailyGoal}
-                      onChange={(e) => setProfile({ dailyGoal: Number(e.target.value) })}
-                      className="mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 bg-slate-950/40 shadow-sm text-white"
-                    >
-                      {[5, 10, 15, 20, 30].map((n) => (
-                        <option key={n} value={n}>
-                          {n} opgaver
-                        </option>
-                      ))}
-                    </select>
-                    <div className="mt-1 text-xs text-white/60">Daily challenge tæller også som 1 opgave.</div>
-                  </div>
-                </div>
-
-                <details className="mt-2">
-                  <summary className="cursor-pointer select-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 font-bold hover:bg-white/15 transition text-white">Tema</summary>
-                  <div className="mt-3 grid gap-2">
-                    {THEMES.map((t) => (
-                      <ThemeButton key={t.key} theme={t} active={profile.themeKey === t.key} onClick={() => setProfile({ themeKey: t.key })} />
-                    ))}
-                  </div>
-                </details>
-
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Arcade sværhedsgrad</div>
-                  <div className="font-extrabold mt-1">{ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.name}</div>
-                  <div className="text-xs text-white/60 mt-1">Du kan ændre den i Arcade-tab.</div>
-                </div>
-
-                <button
-                  onClick={resetAll}
-                  className="w-full rounded-2xl px-4 py-3 font-bold border border-white/10 bg-white/10 hover:bg-white/15 active:scale-[0.98] transition shadow-sm text-white"
-                >
-                  Nulstil alt
-                </button>
-              </div>
-            </Panel>
-
-            <Panel className="lg:col-span-2">
-              <div className="text-lg font-extrabold text-white">Info</div>
-              <div className="mt-2 text-white/80">Træning bruger “progression” (sværere over tid). Arcade er mini-games med hurtige opgaver.</div>
-            </Panel>
-          </div>
-        )}
-
-        {/* ---------------- BADGES TAB ---------------- */}
-        {ui.tab === "badges" && (
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Panel className="lg:col-span-1">
-              <div className="text-lg font-extrabold text-white">Overblik</div>
-              <div className="mt-3 grid gap-2">
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Badges</div>
-                  <div className="text-2xl font-black">{unlockedAch.size}/{ACH.length}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Points</div>
-                  <div className="text-2xl font-black">{game.points}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Daily streak</div>
-                  <div className="text-2xl font-black">{dailyStreak} 🔥</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Højeste streak</div>
-                  <div className="text-2xl font-black">{maxStreak}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Arcade Horse best</div>
-                  <div className="text-2xl font-black">{arcade?.bestScore ?? 0}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-                  <div className="text-xs text-white/70">Arcade Meteor best</div>
-                  <div className="text-2xl font-black">{arcade?.meteorBest ?? 0}</div>
-                </div>
-              </div>
-            </Panel>
-
-            <Panel className="lg:col-span-2">
-              <div className="flex items-center justify-between">
-                <div className="text-lg font-extrabold text-white">Badges</div>
-                <Chip className="text-xs">{unlockedAch.size}/{ACH.length}</Chip>
-              </div>
-
-              <div className="mt-3 grid gap-2">
-                {ACH.map((a) => {
-                  const on = unlockedAch.has(a.id);
-                  const unlockedCls =
-                    "bg-emerald-500/10 border-emerald-300/25 shadow-[0_0_0_1px_rgba(16,185,129,0.12),0_18px_60px_rgba(16,185,129,0.10)]";
-                  const lockedCls = "bg-white/5 border-white/10 opacity-70 grayscale";
-
-                  return (
-                    <div key={a.id} className={"rounded-2xl border px-4 py-3 shadow-sm transition " + (on ? unlockedCls : lockedCls)}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="font-extrabold text-white">{a.name}</div>
-                        <div className="text-sm">
-                          {on ? <span className="text-emerald-200 font-bold">UNLOCKED</span> : <span className="text-white/60 font-bold">🔒 LOCKED</span>}
-                        </div>
-                      </div>
-                      <div className={"text-sm mt-1 " + (on ? "text-emerald-100/90" : "text-white/70")}>{a.desc}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-          </div>
-        )}
+{/* ---------------- BADGES TAB ---------------- */}
+{ui.tab === "badges" && (
+  <BadgesTab state={state} ACH={ACH} />
+)}
       </div>
     </div>
   );
