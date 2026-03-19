@@ -14,6 +14,10 @@ import ProfileTab from "./features/profile/ProfileTab";
 import BadgesTab from "./features/badges/BadgesTab";
 import TrainingTab from "./features/training/TrainingTab";
 import ArcadeTab from "./features/arcade/ArcadeTab";
+import MeteorTab from "./features/meteor/MeteorTab.jsx";
+import AuthPage from "./features/auth/AuthPage";
+import { supabase } from "./lib/supabase";
+import { getOrCreateProfile, saveProfile } from "./lib/profileApi";
 /**
  * FOKUSMAT — App.jsx (paste hele filen)
  *
@@ -26,6 +30,7 @@ import ArcadeTab from "./features/arcade/ArcadeTab";
  * - Træning + Daily er uændret.
  * - Arcade difficulty (let/nem/svær) bruges både til Horse Race og Meteor Math.
  */
+
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -675,523 +680,6 @@ const MINI_GAMES = [
 
 
 
-// ---------------- Meteor Math (mini-game) ----------------
-function makeMeteorOptions(correct, diffKey) {
-  // “pæne” svarmuligheder: tæt på correct, men ikke dubletter
-  const maxOpt = diffKey === "let" ? 4 : diffKey === "nem" ? 5 : 6;
-  const spread = diffKey === "let" ? 6 : diffKey === "nem" ? 12 : 20;
-
-  const opts = new Set([Number(correct)]);
-  let guard = 0;
-  while (opts.size < maxOpt && guard < 200) {
-    guard++;
-    const delta = randInt(-spread, spread);
-    const cand = Number(correct) + delta;
-    if (!Number.isFinite(cand)) continue;
-    if (cand === Number(correct)) continue;
-    if (cand < 0) continue;
-    opts.add(cand);
-  }
-  return Array.from(opts).sort(() => Math.random() - 0.5);
-}
-
-function getMeteorTuning(diffKey) {
-  if (diffKey === "let") {
-    return { spawnMs: 850, speedMin: 0.07, speedMax: 0.11, lives: 4, meteorsPerRound: 6 };
-  }
-  if (diffKey === "nem") {
-    return { spawnMs: 700, speedMin: 0.10, speedMax: 0.15, lives: 3, meteorsPerRound: 7 };
-  }
-  return { spawnMs: 560, speedMin: 0.13, speedMax: 0.20, lives: 3, meteorsPerRound: 8 };
-}
-
-function MeteorMathGame({ grade, allowedTopics, arcadeDifficultyKey, themeRing, onBack, bestScore, onBestScore }) {
-  const [running, setRunning] = useState(false);
-  const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [msg, setMsg] = useState(null);
-
-  // progression
-  const [stage, setStage] = useState(1); // stiger over tid/score
-
-  // meteor = én ad gangen
-  // { id, x(0-1), y(0-1), speed, problem, options:[n,n,n], rot, size }
-  const [meteor, setMeteor] = useState(null);
-
-  // laser flash
-  const [laser, setLaser] = useState(null);
-
-  const rafRef = useRef(null);
-  const lastRef = useRef(0);
-
-  // ------- TUNING -------
-  // base speed afhænger af difficulty, men bliver progressivt hurtigere via stage
-  const baseTuning = useMemo(() => {
-    if (arcadeDifficultyKey === "let") return { speedMin: 0.14, speedMax: 0.20 };
-    if (arcadeDifficultyKey === "nem") return { speedMin: 0.18, speedMax: 0.26 };
-    return { speedMin: 0.22, speedMax: 0.32 };
-  }, [arcadeDifficultyKey]);
-
-  function clampStage(n) {
-    return clamp(n, 1, 999);
-  }
-
-  function stageFromScore(s) {
-    // hver 3 points => sværere + hurtigere
-    return clampStage(1 + Math.floor(s / 3));
-  }
-
-  function getSpeedMultiplier(curStage) {
-    // progressivt hurtigere, men capped så det ikke bliver umuligt for hurtigt
-    const mult = 1 + (curStage - 1) * 0.07;
-    return clamp(mult, 1, 2.35);
-  }
-
-  function make3Options(correct) {
-    // spredning stiger med stage (sværere at gætte)
-    const spreadBase = arcadeDifficultyKey === "let" ? 7 : arcadeDifficultyKey === "nem" ? 10 : 14;
-    const spread = spreadBase + Math.floor(stage * 1.6);
-
-    const opts = new Set([Number(correct)]);
-    let guard = 0;
-
-    while (opts.size < 3 && guard < 240) {
-      guard++;
-      const delta = randInt(-spread, spread);
-      const cand = Number(correct) + delta;
-      if (!Number.isFinite(cand)) continue;
-      if (cand === Number(correct)) continue;
-      if (cand < 0) continue;
-      opts.add(cand);
-    }
-
-    return Array.from(opts).sort(() => Math.random() - 0.5);
-  }
-
-  // “progressivt sværere stykker”
-  // Vi bruger generateArcadeProblem, men “pusher” den ved at:
-  // - give den en fake højere grade (cap 9)
-  // - og ind imellem lave 2-step add/sub selv (mere udfordrende)
-  function generateProgressProblem() {
-    const fakeGrade = clamp((grade ?? 5) + Math.floor(stage / 2), 1, 9);
-
-    // hver 4. stage: giv ofte et 2-step plus/minus (hurtig mental)
-    const doTwoStepAddSub = stage >= 4 && Math.random() < clamp(0.18 + stage * 0.02, 0.18, 0.55);
-
-    if (doTwoStepAddSub) {
-      const big = 35 + stage * 18 + fakeGrade * 8;
-      const a = randInt(Math.floor(big * 0.35), Math.floor(big * 0.85));
-      const b = randInt(Math.floor(big * 0.15), Math.floor(big * 0.65));
-      const c = randInt(Math.floor(big * 0.10), Math.floor(big * 0.55));
-      const form = choice(["a+b-c", "a-b+c", "(a+b)-c"]);
-
-      if (form === "a+b-c") {
-        const ans = a + b - c;
-        return { topicKey: "addsub", title: "3-led", prompt: `Regn ud: ${a} + ${b} − ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer" };
-      }
-      if (form === "a-b+c") {
-        const ans = a - b + c;
-        return { topicKey: "addsub", title: "3-led", prompt: `Regn ud: ${a} − ${b} + ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer" };
-      }
-      const inside = a + b;
-      const ans = inside - c;
-      return { topicKey: "addsub", title: "Parentes", prompt: `Regn ud: (${a} + ${b}) − ${c}`, answer: ans, unit: "", tolerance: 0, format: "integer" };
-    }
-
-    // ellers: brug din eksisterende generator (stadig “pæn”)
-    const p = generateArcadeProblem(fakeGrade, allowedTopics, arcadeDifficultyKey);
-    return p;
-  }
-
-  function spawnMeteor(nextStage = stage) {
-    const p = generateProgressProblem();
-    const options = make3Options(p.answer);
-
-    const speedMult = getSpeedMultiplier(nextStage);
-    const speed =
-      (baseTuning.speedMin + Math.random() * (baseTuning.speedMax - baseTuning.speedMin)) *
-      speedMult;
-
-    const size = clamp(64 + nextStage * 2, 64, 92);
-    const rot = (Math.random() * 18 - 9) * (Math.PI / 180);
-
-    setMeteor({
-      id: uid(),
-      x: Math.random() * 0.70 + 0.15,
-      y: -0.14,
-      speed,
-      problem: p,
-      options,
-      rot,
-      size,
-    });
-
-    setMsg(null);
-  }
-
-  function start() {
-    setScore(0);
-    setLives(3);
-    setMsg(null);
-    setStage(1);
-    setRunning(true);
-    setLaser(null);
-    spawnMeteor(1);
-  }
-
-  function stop(text) {
-    setRunning(false);
-    setMsg(text ?? null);
-
-    if (typeof onBestScore === "function") {
-      onBestScore(score);
-    }
-  }
-
-  function loseLife() {
-    setLives((L) => {
-      const next = L - 1;
-      if (next <= 0) {
-        setTimeout(() => stop(`Game Over · Score: ${score}`), 0);
-        return 0;
-      }
-      return next;
-    });
-  }
-
-  // hvis difficulty ændrer sig og vi ikke kører: reset
-  useEffect(() => {
-    if (!running) {
-      setLives(3);
-      setMeteor(null);
-      setMsg(null);
-      setStage(1);
-      setLaser(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arcadeDifficultyKey]);
-
-  // animation loop: meteor falder
-  useEffect(() => {
-    if (!running) return;
-
-    lastRef.current = performance.now();
-
-    const tick = (now) => {
-      const dt = Math.min(0.033, (now - lastRef.current) / 1000);
-      lastRef.current = now;
-
-      setMeteor((m) => {
-        if (!m) return m;
-        const ny = m.y + m.speed * dt;
-
-        // “Base” ligger over svar-knapperne.
-        // Vi bruger en hit-line lidt over bunden.
-        if (ny >= 0.64) {
-          loseLife();
-          setMsg("Base ramt! 💥");
-          setTimeout(() => {
-            if (running) spawnMeteor(stage);
-          }, 0);
-          return null;
-        }
-
-        return { ...m, y: ny };
-      });
-
-      // sluk laser efter kort flash
-      setLaser((L) => {
-        if (!L) return null;
-        if (Date.now() > L.untilTs) return null;
-        return L;
-      });
-
-      rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, baseTuning.speedMin, baseTuning.speedMax, stage]);
-
-  function fireLaserToMeteor(m) {
-    // base center (ca)
-    const x1 = 0.50;
-    const y1 = 0.74;
-
-    const x2 = m.x;
-    const y2 = m.y;
-
-    setLaser({
-      x1,
-      y1,
-      x2,
-      y2,
-      untilTs: Date.now() + 170,
-    });
-  }
-
-  function clickAnswer(value) {
-    if (!running) return;
-    if (!meteor) return;
-
-    const expected = Number(meteor.problem.answer);
-    const got = Number(value);
-
-    const ok = got === expected;
-
-    if (!ok) {
-      setMsg("Forkert 😅");
-      return;
-    }
-
-    // korrekt: laser + score + stage progression + ny meteor
-    fireLaserToMeteor(meteor);
-
-    setScore((s) => {
-      const nextScore = s + 1;
-      const nextStage = stageFromScore(nextScore);
-      setStage(nextStage);
-      return nextScore;
-    });
-
-    setMsg("Korrekt! ⚡");
-
-    setMeteor(null);
-    setTimeout(() => {
-      if (running) spawnMeteor(stageFromScore(score + 1));
-    }, 190);
-  }
-
-  const arenaH = 520; // større skærm
-
-  // meteor visuals: “meteor-agtig” uden emoji
-  function MeteorVisual({ size = 72, rot = 0 }) {
-    const s = size;
-    return (
-      <div
-        className="relative"
-        style={{
-          width: s,
-          height: s,
-          transform: `rotate(${rot}rad)`,
-        }}
-      >
-        {/* tail */}
-        <div
-          className="absolute left-1/2 top-1/2 -translate-y-1/2"
-          style={{
-            width: s * 1.2,
-            height: s * 0.55,
-            transform: "translateX(-92%)",
-            filter: "blur(0.2px)",
-          }}
-        >
-          <div className="h-full w-full rounded-[999px] bg-gradient-to-r from-amber-300/0 via-amber-300/35 to-amber-300/70" />
-        </div>
-
-        {/* glow */}
-        <div className="absolute inset-0 rounded-full bg-amber-300/10 blur-xl" />
-
-        {/* rock */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200/35 via-slate-100/15 to-slate-950/35 border border-white/15 shadow-[0_20px_80px_rgba(0,0,0,0.45)]" />
-
-        {/* craters */}
-        <div className="absolute left-[18%] top-[22%] h-[18%] w-[18%] rounded-full bg-black/20 border border-white/10" />
-        <div className="absolute left-[55%] top-[30%] h-[14%] w-[14%] rounded-full bg-black/18 border border-white/10" />
-        <div className="absolute left-[38%] top-[58%] h-[16%] w-[16%] rounded-full bg-black/18 border border-white/10" />
-
-        {/* highlight */}
-        <div className="absolute left-[18%] top-[18%] h-[35%] w-[35%] rounded-full bg-white/12 blur-sm" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Panel className="lg:col-span-1">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-lg font-extrabold">Meteor Math</div>
-          <SmallBtn onClick={onBack}>Til menu</SmallBtn>
-        </div>
-
-        <div className="mt-3 grid gap-2">
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-            <div className="text-xs text-white/70">Score</div>
-            <div className="text-2xl font-black">{score}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-            <div className="text-xs text-white/70">Liv</div>
-            <div className="text-2xl font-black">{Array.from({ length: Math.max(0, lives) }, () => "❤️").join(" ") || "—"}</div>
-            <div className="text-[11px] text-white/55 mt-1">Du har altid kun 3 liv.</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-            <div className="text-xs text-white/70">Bedste score</div>
-            <div className="text-2xl font-black">{bestScore ?? 0}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
-            <div className="text-xs text-white/70">Progression</div>
-            <div className="font-extrabold">Stage {stage}</div>
-            <div className="text-[11px] text-white/55 mt-1">Opgaver + faldhastighed stiger løbende.</div>
-          </div>
-
-          {!running ? (
-            <button
-              onClick={start}
-              className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-gradient-to-r from-sky-500 via-cyan-500 to-indigo-600 hover:opacity-95 active:scale-[0.98] transition"
-            >
-              Start
-            </button>
-          ) : (
-            <button
-              onClick={() => stop(`Stoppet · Score: ${score}`)}
-              className="w-full rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-white/10 border border-white/10 hover:bg-white/15 active:scale-[0.98] transition"
-            >
-              Stop
-            </button>
-          )}
-
-          {msg && (
-            <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-white/85 fadeUp">
-              <div className="font-extrabold">Status</div>
-              <div className="text-sm text-white/75 mt-1">{msg}</div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 text-xs text-white/60">
-          Klik korrekt svar for at skyde meteoren før den rammer basen.
-        </div>
-      </Panel>
-
-      <Panel className="lg:col-span-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2 items-center">
-            <Chip>Meteor Math</Chip>
-            <Chip>Klassetrin {grade}.</Chip>
-            <Chip>Arcade: {ARCADE_DIFFICULTIES.find((d) => d.key === arcadeDifficultyKey)?.name}</Chip>
-          </div>
-        </div>
-
-        {/* Arena */}
-        <div
-          className="mt-4 relative rounded-3xl border border-white/10 bg-gradient-to-b from-slate-950/25 via-slate-950/35 to-black/35 overflow-hidden"
-          style={{ height: arenaH }}
-        >
-          {/* Laser */}
-          {laser && (
-            <div className="absolute inset-0 pointer-events-none">
-              {(() => {
-                const x1 = laser.x1 * 100;
-                const y1 = laser.y1 * 100;
-                const x2 = laser.x2 * 100;
-                const y2 = laser.y2 * 100;
-
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const len = Math.sqrt(dx * dx + dy * dy);
-                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-                return (
-                  <div
-                    className="absolute"
-                    style={{
-                      left: `${x1}%`,
-                      top: `${y1}%`,
-                      width: `${len}%`,
-                      height: 5,
-                      transformOrigin: "0 50%",
-                      transform: `rotate(${angle}deg)`,
-                    }}
-                  >
-                    <div className="h-full w-full rounded-full bg-white/90 shadow-[0_0_22px_rgba(255,255,255,0.55)]" />
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Meteor */}
-          {meteor && (
-            <div
-              className="absolute"
-              style={{
-                left: `${meteor.x * 100}%`,
-                top: `${meteor.y * 100}%`,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <div className="relative grid place-items-center">
-                <MeteorVisual size={meteor.size} rot={meteor.rot} />
-                <div className="absolute -bottom-7 left-1/2 -translate-x-1/2">
-                  <div className="rounded-2xl border border-white/10 bg-slate-950/55 backdrop-blur px-4 py-2 shadow-lg">
-                    <div className="font-black text-white text-base text-center whitespace-nowrap">
-                      {meteor.problem.prompt.replace("Regn ud: ", "")}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Base (synlig, over svar-knapper) */}
-          <div className="absolute left-1/2 bottom-[132px] -translate-x-1/2 z-10">
-            <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-slate-950/60 via-slate-900/45 to-slate-950/60 backdrop-blur px-6 py-4 shadow-2xl">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl border border-white/10 bg-white/10 grid place-items-center shadow-sm">
-                  {/* lille “kanon” */}
-                  <div className="h-3 w-6 rounded-full bg-white/70" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-white leading-tight">Base</div>
-                  <div className="text-[11px] text-white/60 -mt-0.5">Hvis meteoren rammer her, mister du 1 liv.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Answer buttons */}
-          <div className="absolute left-0 right-0 bottom-0 p-4 z-20">
-            <div className="rounded-3xl border border-white/10 bg-slate-950/55 backdrop-blur px-4 py-4 shadow-sm">
-              <div className="text-xs text-white/70 mb-2">Vælg korrekt svar:</div>
-
-              <div className="grid gap-2 md:grid-cols-3">
-                {(meteor?.options ?? [0, 0, 0]).map((v, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => clickAnswer(v)}
-                    disabled={!running || !meteor}
-                    className="rounded-2xl px-4 py-3 font-extrabold text-white shadow-lg bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600 hover:opacity-95 active:scale-[0.98] transition disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {String(v)}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-2 text-[11px] text-white/55">
-                {running ? "Klik hurtigt — meteorer bliver hurtigere jo længere du kommer." : "Tryk Start for at begynde."}
-              </div>
-            </div>
-          </div>
-
-          {/* Decorative stars */}
-          <div className="pointer-events-none absolute inset-0 opacity-30">
-            <div className="absolute left-[12%] top-[12%]">✦</div>
-            <div className="absolute left-[70%] top-[20%]">✦</div>
-            <div className="absolute left-[35%] top-[38%]">✦</div>
-            <div className="absolute left-[82%] top-[50%]">✦</div>
-            <div className="absolute left-[18%] top-[58%]">✦</div>
-            <div className="absolute left-[52%] top-[70%]">✦</div>
-            <div className="absolute left-[26%] top-[78%]">✦</div>
-          </div>
-        </div>
-      </Panel>
-    </div>
-  );
-}
 
 /**
  * ArcadeHorseRaceCanvas
@@ -1375,8 +863,99 @@ function ArcadeHorseRaceCanvas({ horses, playerIndex = 0, finishLine = 0.92 }) {
 
 // ---------------- App ----------------
 export default function App() {
+const [session, setSession] = useState(null);
+const [authLoading, setAuthLoading] = useState(true);
 const [state, setState] = useState(() => loadState() ?? makeDefaultState());
+const [profileLoading, setProfileLoading] = useState(true);
+const [profileReady, setProfileReady] = useState(false);
+useEffect(() => {
+  supabase.auth.getSession().then(({ data }) => {
+    setSession(data.session ?? null);
+    setAuthLoading(false);
+  });
 
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setSession(session ?? null);
+    setAuthLoading(false);
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
+useEffect(() => {
+  async function loadUserProfile() {
+    if (!session?.user) {
+      setProfileLoading(false);
+      return;
+    }
+
+    try {
+      setProfileLoading(true);
+
+      const fallbackState = loadState() ?? makeDefaultState();
+      const dbProfile = await getOrCreateProfile(session.user, fallbackState);
+
+
+
+const cloudState = dbProfile.app_state;
+
+const isValidCloudState =
+  cloudState &&
+  typeof cloudState === "object" &&
+  cloudState.profile &&
+  cloudState.game &&
+  cloudState.meta &&
+  cloudState.arcade &&
+  cloudState.ui;
+
+if (isValidCloudState) {
+  setState(cloudState);
+} else {
+  setState((prev) => ({
+    ...fallbackState,
+    profile: {
+      ...fallbackState.profile,
+      name: dbProfile.name || "",
+      grade: dbProfile.grade ?? 5,
+    },
+    game: {
+      ...fallbackState.game,
+      level: dbProfile.level ?? 1,
+      xp: dbProfile.xp ?? 0,
+      points: dbProfile.points ?? 0,
+    },
+    arcade: {
+      ...fallbackState.arcade,
+      meteorBest: dbProfile.meteor_best ?? 0,
+    },
+  }));
+}
+    } catch (err) {
+      console.error("Kunne ikke hente/oprette profil:", err);
+    } finally {
+      setProfileLoading(false);
+      setProfileReady(true);
+    }
+  }
+
+  loadUserProfile();
+}, [session]);
+useEffect(() => {
+  async function syncProfileToCloud() {
+    if (!session?.user) return;
+    if (!profileReady) return;
+
+    try {
+      console.log("GEMMER NAVN:", state.profile.name);
+      await saveProfile(session.user.id, state);
+    } catch (err) {
+      console.error("Kunne ikke gemme profil til cloud:", err);
+    }
+  }
+
+  syncProfileToCloud();
+}, [state, session, profileReady]);
   // Backwards compatibility (hvis localStorage ikke har felter endnu)
   useEffect(() => {
     if (!state?.profile) return;
@@ -1388,6 +967,10 @@ const [state, setState] = useState(() => loadState() ?? makeDefaultState());
     if (!state.ui) {
       setState((s) => ({ ...s, ui: { tab: "tasks", arcadeGameKey: null } }));
     } else if (!("arcadeGameKey" in state.ui)) {
+      // Hvis der ligger et gammelt mini-game valgt (fx "meteor"), så nulstil den
+if (state.ui?.arcadeGameKey && state.ui.arcadeGameKey !== "horse") {
+  setState((s) => ({ ...s, ui: { ...s.ui, arcadeGameKey: null } }));
+}
       setState((s) => ({ ...s, ui: { ...s.ui, arcadeGameKey: null } }));
     }
 
@@ -1467,7 +1050,13 @@ useEffect(() => {
       setPulseBar(false);
     }, 1600);
   }
-
+async function handleLogout() {
+  try {
+    await supabase.auth.signOut();
+  } catch (err) {
+    console.error("Kunne ikke logge ud:", err);
+  }
+}
   function setProfile(nextPartial) {
     setState((s) => ({ ...s, profile: { ...s.profile, ...nextPartial } }));
   }
@@ -1505,26 +1094,11 @@ useEffect(() => {
     swapProblem(generateProblem(game.level, profile.grade, game.allowedTopics));
   }
 
-  function resetAll() {
-    const dk = dayKeyLocal();
-    setState({
-      profile: { name: "", grade: 5, dailyGoal: 10, themeKey: "navy", avatarKey: "dot", arcadeDifficulty: "let" },
-      game: { level: 1, xp: 0, points: 0, streak: 0, correct: 0, wrong: 0, allowedTopics: [], achievements: [] },
-      meta: {
-        dayKey: dk,
-        correctToday: 0,
-        daily: null,
-        dailyStreak: 0,
-        dailyLastDoneDayKey: null,
-        maxStreak: 0,
-        dailyCountedInGoalDayKey: null,
-      },
-      arcade: { bestScore: 0, lastScore: 0, meteorBest: 0 },
-      ui: { tab: "tasks", arcadeGameKey: null },
-    });
-    setToast(null);
-    setLevelUp(null);
-  }
+function resetAll() {
+  setState(makeDefaultState());
+  setToast(null);
+  setLevelUp(null);
+}
 
   function playPop() {
     setPop(true);
@@ -1922,7 +1496,17 @@ useEffect(() => {
   // ----------------- render -----------------
   const daily = meta?.daily;
   const dailyProblem = daily?.problem;
+if (authLoading || profileLoading) {
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+      Loader...
+    </div>
+  );
+}
 
+if (!session) {
+  return <AuthPage />;
+}
   return (
     <div className={"min-h-screen text-white " + mainGradient}>
       <style>{`
@@ -1950,6 +1534,7 @@ useEffect(() => {
         </div>
       )}
 
+
       {levelUp && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4">
           <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-950/55 shadow-2xl p-6 fadeUp backdrop-blur">
@@ -1975,6 +1560,18 @@ useEffect(() => {
             </div>
 
             <div className="flex gap-2 flex-wrap items-center">
+              <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 shadow-sm">
+  <div className="text-xs text-white/70">Logget ind som</div>
+  <div className="font-extrabold text-white">
+    {state.profile?.name?.trim() || session?.user?.email || "Bruger"}
+  </div>
+</div>
+<button
+  onClick={handleLogout}
+  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 font-extrabold text-white hover:bg-white/15 transition"
+>
+  Log ud
+</button>
               <div className="rounded-2xl border border-white/10 bg-gradient-to-r from-amber-500/15 via-orange-600/10 to-rose-600/15 px-4 py-2 shadow-sm">
                 <div className="text-xs text-white/70">Daily streak</div>
                 <div className="text-xl font-black leading-tight">{dailyStreak} 🔥</div>
@@ -2053,7 +1650,7 @@ useEffect(() => {
   />
 )}
         {/* ---------------- ARCADE TAB ---------------- */}
-       {ui.tab === "arcade" && (
+{ui.tab === "arcade" && (
   <ArcadeTab
     ui={ui}
     profile={profile}
@@ -2065,7 +1662,7 @@ useEffect(() => {
     themeRing={theme.ring}
     setProfile={setProfile}
     setArcadeGameKey={setArcadeGameKey}
-    MeteorMathGameComp={MeteorMathGame}
+    MeteorMathGameComp={MeteorTab}
     onMeteorBestScore={(newScore) => {
       setState((s) => ({
         ...s,
@@ -2093,6 +1690,7 @@ useEffect(() => {
     arcadeHorsesForCanvas={arcadeHorsesForCanvas}
     PLAYER_INDEX={PLAYER_INDEX}
     finishLine={finishLine}
+    generateArcadeProblem={generateArcadeProblem}
   />
 )}
 

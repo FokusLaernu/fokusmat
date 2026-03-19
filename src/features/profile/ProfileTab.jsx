@@ -70,12 +70,21 @@ export default function ProfileTab({ state, setState, theme, avatarShapeClass })
         <div className="mt-4 space-y-3">
           <div>
             <label className="text-sm text-white/80">Navn</label>
-            <input
-              value={profile.name}
-              onChange={(e) => setProfile({ name: e.target.value })}
-              placeholder="Skriv dit navn"
-              className={"mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 bg-slate-950/40 shadow-sm focus:outline-none focus:ring-2 text-white " + theme.ring}
-            />
+<input
+
+  value={state.profile.name ?? ""}
+  onChange={(e) =>
+    setState((s) => ({
+      ...s,
+      profile: {
+        ...s.profile,
+        name: e.target.value,
+      },
+    }))
+  }
+  className="mt-1 w-full rounded-2xl border border-white/10 px-4 py-3 bg-slate-950/40 text-white"
+  placeholder="Skriv dit navn"
+/>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

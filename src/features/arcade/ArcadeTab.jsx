@@ -5,29 +5,18 @@ import SmallBtn from "../../ui/components/SmallBtn";
 import MiniGameCard from "../../ui/components/MiniGameCard";
 
 export default function ArcadeTab({
-  // state/data
   ui,
   profile,
   game,
   arcade,
   chosenTopicsText,
-
-  // constants
   ARCADE_DIFFICULTIES,
   MINI_GAMES,
-
-  // theme
   themeRing,
-
-  // setters/handlers
   setProfile,
   setArcadeGameKey,
-
-  // meteor (component + handler)
   MeteorMathGameComp,
   onMeteorBestScore,
-
-  // horse-race (state + handlers + component)
   arcadeScore,
   arcadeRunning,
   arcadeMsg,
@@ -42,10 +31,10 @@ export default function ArcadeTab({
   arcadeHorsesForCanvas,
   PLAYER_INDEX,
   finishLine,
+  generateArcadeProblem,
 }) {
   return (
     <div className="grid gap-4">
-      {/* Global Arcade settings */}
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -72,15 +61,18 @@ export default function ArcadeTab({
             </div>
           </div>
         </div>
-        <div className="mt-2 text-[11px] text-white/55">Tip: “Let” er perfekt til flow. “Svær” er stadig hurtig, men kræver fokus.</div>
+
+        <div className="mt-2 text-[11px] text-white/55">
+          Tip: “Let” er perfekt til flow. “Svær” er stadig hurtig, men kræver fokus.
+        </div>
       </Panel>
 
-      {/* Menu eller game */}
       {ui.arcadeGameKey == null && (
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel className="lg:col-span-1">
             <div className="text-lg font-extrabold">Mini-games</div>
             <div className="mt-2 text-sm text-white/70">Klik et spil for at starte.</div>
+
             <div className="mt-4 grid gap-2">
               {MINI_GAMES.map((g) => (
                 <MiniGameCard
@@ -114,8 +106,9 @@ export default function ArcadeTab({
 
             <div className="mt-4 rounded-3xl border border-white/10 bg-white/10 p-5">
               <div className="font-extrabold">Hvad er nyt?</div>
-              <div className="mt-2 text-white/80">Du har nu en mini-game menu i Arcade. Meteor Math er første spil — vi kan bygge flere bagefter.</div>
-              <div className="mt-2 text-xs text-white/60">Hvis du vil: næste skridt kan være power-ups, combo meter, eller “boss meteor”.</div>
+              <div className="mt-2 text-white/80">
+                Du har nu en mini-game menu i Arcade.
+              </div>
             </div>
           </Panel>
         </div>
@@ -130,6 +123,8 @@ export default function ArcadeTab({
           bestScore={arcade?.meteorBest ?? 0}
           onBestScore={onMeteorBestScore}
           onBack={() => setArcadeGameKey(null)}
+          makeArcadeProblem={generateArcadeProblem}
+          ARCADE_DIFFICULTIES={ARCADE_DIFFICULTIES}
         />
       )}
 
@@ -174,8 +169,6 @@ export default function ArcadeTab({
                 </div>
               )}
             </div>
-
-            <div className="mt-4 text-xs text-white/60">Division i Horse-Arcade er altid “pæn” (heltal). Ingen 342÷19 😄</div>
           </Panel>
 
           <Panel className="lg:col-span-2">
@@ -186,6 +179,7 @@ export default function ArcadeTab({
                 <Chip>Arcade: {ARCADE_DIFFICULTIES.find((d) => d.key === (profile.arcadeDifficulty || "let"))?.name}</Chip>
                 <Chip>Emner: {chosenTopicsText}</Chip>
               </div>
+
               <div className="flex gap-2">
                 <SmallBtn
                   onClick={resetHorseRace}
@@ -198,7 +192,11 @@ export default function ArcadeTab({
             </div>
 
             <div className="mt-4">
-              <ArcadeHorseRaceCanvasComp horses={arcadeHorsesForCanvas} playerIndex={PLAYER_INDEX} finishLine={finishLine} />
+              <ArcadeHorseRaceCanvasComp
+                horses={arcadeHorsesForCanvas}
+                playerIndex={PLAYER_INDEX}
+                finishLine={finishLine}
+              />
             </div>
 
             <div className="mt-4 rounded-3xl border border-white/10 bg-white/10 p-5">
@@ -224,9 +222,6 @@ export default function ArcadeTab({
                   <div className="mt-2 flex gap-2 flex-wrap">
                     <SmallBtn onClick={() => setArcadeInput("")} disabled={!arcadeRunning}>
                       Ryd
-                    </SmallBtn>
-                    <SmallBtn onClick={() => {}} disabled={!arcadeRunning}>
-                      Skjul status
                     </SmallBtn>
                   </div>
                 </div>
