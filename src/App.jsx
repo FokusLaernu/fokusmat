@@ -18,6 +18,7 @@ import MeteorTab from "./features/meteor/MeteorTab.jsx";
 import AuthPage from "./features/auth/AuthPage";
 import { supabase } from "./lib/supabase";
 import { getOrCreateProfile, saveProfile } from "./lib/profileApi";
+import LeaderboardTab from "./features/leaderboard/LeaderboardTab";
 /**
  * FOKUSMAT — App.jsx (paste hele filen)
  *
@@ -1606,6 +1607,7 @@ if (!session) {
         <div className="mb-4 flex gap-2 flex-wrap">
           <TabButton active={ui.tab === "tasks"} label="Opgaver" onClick={() => setTab("tasks")} />
           <TabButton active={ui.tab === "arcade"} label="Arcade" onClick={() => setTab("arcade")} />
+          <TabButton active={ui.tab === "leaderboard"} label="Leaderboard" onClick={() => setTab("leaderboard")} />
           <TabButton active={ui.tab === "profile"} label="Profil" onClick={() => setTab("profile")} />
           <TabButton active={ui.tab === "badges"} label="Badges" onClick={() => setTab("badges")} />
         </div>
@@ -1693,7 +1695,9 @@ if (!session) {
     generateArcadeProblem={generateArcadeProblem}
   />
 )}
-
+{ui.tab === "leaderboard" && (
+  <LeaderboardTab />
+)}
         {/* ---------------- PROFIL TAB ---------------- */}
    {ui.tab === "profile" && (
   <ProfileTab
